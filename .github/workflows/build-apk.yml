@@ -28,16 +28,19 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Build Web Assets
+        run: npm run build
+
       - name: Initialize Capacitor Android
         run: |
-          npx cap add android
+          npx cap add android || echo "Android project already exists"
           npx cap sync android
 
       - name: Build with Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

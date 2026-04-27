@@ -4,7 +4,7 @@
   "description": "Premium Apple Music Clone for Android",
   "main": "index.html",
   "scripts": {
-    "build": "echo 'No build step required for vanilla JS'",
+    "build": "mkdir -p www && cp -r assets index.html main.js style.css data.js www/",
     "sync": "cap sync"
   },
   "dependencies": {

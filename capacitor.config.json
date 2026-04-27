@@ -1,7 +1,7 @@
 {
   "appId": "com.antigravity.applemusic",
   "appName": "AppleMusicClone",
-  "webDir": ".",
+  "webDir": "www",
   "server": {
     "androidScheme": "https"
   }
