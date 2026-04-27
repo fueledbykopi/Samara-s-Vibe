@@ -26,21 +26,26 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --no-package-lock
 
       - name: Build Web Assets
-        run: npm run build
-
-      - name: Initialize Capacitor Android
         run: |
-          npx cap add android || echo "Android project already exists"
-          npx cap sync android
+          mkdir -p www
+          cp -r assets index.html main.js style.css data.js www/
+          ls -R www
+
+      - name: Initialize & Sync Capacitor
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android --verbose
 
       - name: Build with Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace --info
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
