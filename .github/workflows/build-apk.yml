@@ -40,7 +40,7 @@ jobs:
           fi
           # Surgical Patch: Setup local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
-          npx cap sync android --verbose
+          npx cap sync android
 
       - name: Build with Gradle
         run: |
