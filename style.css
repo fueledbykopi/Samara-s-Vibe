@@ -33,7 +33,7 @@ body {
   position: relative;
 }
 
-/* Background gradient that will be updated by JS */
+/* Background gradient layers for smooth cross-fade */
 .dynamic-bg {
   position: fixed;
   top: 0;
@@ -41,8 +41,13 @@ body {
   width: 100%;
   height: 100%;
   z-index: -1;
-  transition: background 1.5s ease;
+  transition: opacity 1.5s ease;
   filter: blur(100px);
+  opacity: 0;
+  will-change: opacity;
+}
+
+.dynamic-bg.active {
   opacity: 0.5;
 }
 
@@ -53,20 +58,22 @@ body {
   padding: 20px;
   padding-bottom: calc(var(--safe-area-bottom) + 80px);
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tab-section {
   display: none;
+  will-change: transform, opacity;
 }
 
 .tab-section.active {
   display: block;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* Navigation Bar */
@@ -76,13 +83,13 @@ body {
   left: 0;
   width: 100%;
   height: 80px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
   display: flex;
   justify-content: space-around;
   align-items: center;
-  border-top: 1px solid var(--border-color);
+  border-top: 0.5px solid var(--border-color);
   z-index: 100;
   padding-bottom: 20px;
 }
@@ -94,8 +101,12 @@ body {
   color: var(--text-secondary);
   font-size: 10px;
   text-decoration: none;
-  transition: color 0.2s;
+  transition: color 0.2s, transform 0.1s;
   cursor: pointer;
+}
+
+.nav-item:active {
+  transform: scale(0.9);
 }
 
 .nav-item.active {
@@ -114,17 +125,18 @@ body {
   left: 10px;
   right: 10px;
   height: 64px;
-  background: var(--card-bg);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border-radius: 12px;
+  background: rgba(40, 40, 40, 0.7);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   padding: 8px;
   z-index: 90;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  border: 1px solid var(--border-color);
-  transition: transform 0.2s active;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
 }
 
 .mini-player:active {
