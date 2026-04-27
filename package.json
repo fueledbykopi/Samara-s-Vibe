@@ -1,0 +1,17 @@
+{
+  "name": "apple-music-clone",
+  "version": "1.1.0",
+  "description": "Premium Apple Music Clone for Android",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'No build step required for vanilla JS'",
+    "sync": "cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "author": "Antigravity",
+  "license": "MIT"
+}
