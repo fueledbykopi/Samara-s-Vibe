@@ -36,9 +36,16 @@ jobs:
 
       - name: Initialize & Sync Capacitor
         run: |
+          npx cap init "AppleMusicClone" "com.antigravity.applemusic" --web-dir www
           if [ ! -d "android" ]; then
             npx cap add android
           fi
+          # Surgical Patch: Inject namespace if missing (Capacitor 6 requirement)
+          if ! grep -q "namespace" android/app/build.gradle; then
+            sed -i 's/android {/android {\n    namespace "com.antigravity.applemusic"/' android/app/build.gradle
+          fi
+          # Surgical Patch: Setup local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           npx cap sync android --verbose
 
       - name: Build with Gradle
