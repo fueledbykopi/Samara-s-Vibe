@@ -458,10 +458,11 @@ function setupEventListeners() {
     });
   });
 
-  document.getElementById('startBtn').addEventListener('click', () => {
-    document.getElementById('welcomeScreen').classList.add('hidden');
-    // Start playback of first song if desired, or just let user browse
-  });
+  // Auto-dismiss welcome screen
+  setTimeout(() => {
+    const welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.classList.add('hidden');
+  }, 2500);
 
   miniPlayer.addEventListener('click', (e) => {
     if (e.target.closest('.control-btn')) return;
