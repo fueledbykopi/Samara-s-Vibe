@@ -8,8 +8,8 @@ let playbackInterval = null;
 let activeBgLayer = 1;
 let ytPlayer = null;
 let isYTReady = false;
-let currentMode = 'audio'; // 'audio' or 'video'
-let activeEngine = 'youtube'; // 'youtube', 'local-audio', 'local-video'
+let currentMode = 'audio';
+let activeEngine = 'youtube';
 let localUrls = new Set(); 
 
 // DOM Elements
@@ -36,6 +36,7 @@ const artworkContainer = document.getElementById('artworkContainer');
 const fileInput = document.getElementById('fileInput');
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
+const trendingGrid = document.getElementById('trendingGrid');
 const themeToggle = document.getElementById('themeToggle');
 
 // Initialize
@@ -46,6 +47,8 @@ function init() {
   setupSwipeGestures();
   initYouTube();
   updateSongUI(songs[currentSongIndex], true);
+  fetchTrending();
+  // autoScanLocalFiles(); // Disabled by default to avoid permission popups immediately
   lucide.createIcons();
 }
 
@@ -106,17 +109,7 @@ function onPlayerStateChange(event) {
 // Rendering
 function renderLibrary() {
   const grid = document.getElementById('libraryGrid');
-  const empty = document.getElementById('emptyLibrary');
-  
-  if (songs.length === 0) {
-    if (grid) grid.style.display = 'none';
-    if (empty) empty.style.display = 'block';
-    return;
-  }
-  
-  if (empty) empty.style.display = 'none';
   if (grid) {
-    grid.style.display = 'grid';
     grid.innerHTML = songs.map((song, index) => `
       <div class="music-card" onclick="playSong(${index})">
         <img src="${song.artwork}" alt="${song.title}" class="card-image" loading="lazy">
@@ -124,6 +117,49 @@ function renderLibrary() {
         <div class="card-subtitle">${song.artist}</div>
       </div>
     `).join('');
+  }
+}
+
+async function fetchTrending() {
+  if (!trendingGrid) return;
+  
+  try {
+    // Try multiple instances if one fails
+    const instances = [
+        'https://api.piped.victr.me',
+        'https://piped-api.lunar.icu',
+        'https://pipedapi.kavin.rocks'
+    ];
+    
+    let data = null;
+    for (const instance of instances) {
+        try {
+            const response = await fetch(`${instance}/trending?region=ID`);
+            if (response.ok) {
+                data = await response.json();
+                break;
+            }
+        } catch (e) { continue; }
+    }
+
+    if (!data || data.length === 0) {
+      trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Could not load trending music. Please try again.</div>';
+      return;
+    }
+
+    trendingGrid.innerHTML = data.slice(0, 10).map(item => {
+      const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+      return `
+        <div class="music-card" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
+          <img src="${thumb}" alt="${item.title}" class="card-image" loading="lazy">
+          <div class="card-title">${item.title}</div>
+          <div class="card-subtitle">${item.uploaderName} • Trending</div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Error loading trending content.</div>';
   }
 }
 
@@ -340,20 +376,31 @@ async function performSearch(query) {
   searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching YouTube...</div>';
   
   try {
-    // Switching to a more reliable instance for YouTube Search
-    // Piped or Invidious public instances
-    const response = await fetch(`https://api.piped.victr.me/search?q=${encodeURIComponent(query)}&filter=videos`);
-    const data = await response.json();
+    const instances = [
+        'https://api.piped.victr.me',
+        'https://piped-api.lunar.icu',
+        'https://pipedapi.kavin.rocks'
+    ];
     
-    if (!data.items || data.items.length === 0) {
-      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found on YouTube. Try a different term.</div>';
+    let data = null;
+    for (const instance of instances) {
+        try {
+            const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=videos`);
+            if (response.ok) {
+                data = await response.json();
+                break;
+            }
+        } catch (e) { continue; }
+    }
+    
+    if (!data || !data.items || data.items.length === 0) {
+      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found.</div>';
       return;
     }
 
     const results = data.items.slice(0, 10);
 
     searchResults.innerHTML = results.map(item => {
-      // Correctly extract ID from Piped URL /v/ID or /watch?v=ID
       const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
       const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
       
@@ -370,16 +417,7 @@ async function performSearch(query) {
     }).join('');
     lucide.createIcons();
   } catch (err) {
-    console.error("Search error:", err);
-    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Search failed. Trying fallback...</div>';
-    // Fallback to another instance if first fails
-    try {
-        const fallbackResponse = await fetch(`https://piped-api.lunar.icu/search?q=${encodeURIComponent(query)}&filter=videos`);
-        const fallbackData = await fallbackResponse.json();
-        // ... similar rendering logic ...
-    } catch(e) {
-        searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Connection issue. Please try again later.</div>';
-    }
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Connection failed.</div>';
   }
 }
 
@@ -422,7 +460,6 @@ function setupEventListeners() {
     localStorage.setItem('samara-vibe-theme', themeToggle.checked ? 'dark' : 'light');
   });
 
-  // Load saved theme
   const savedTheme = localStorage.getItem('samara-vibe-theme');
   if (savedTheme === 'light') {
     themeToggle.checked = false;
@@ -447,6 +484,8 @@ function setupEventListeners() {
       });
     });
     renderLibrary();
+    // switch to library to show results
+    document.querySelector('[data-tab="library"]').click();
   });
 
   miniPlayer.addEventListener('click', (e) => {
@@ -478,7 +517,6 @@ function setupEventListeners() {
     localVideo.volume = vol / 100;
   });
 
-  // Auto-dismiss welcome screen
   setTimeout(() => {
     const welcome = document.getElementById('welcomeScreen');
     if (welcome) welcome.classList.add('hidden');
