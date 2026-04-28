@@ -37,7 +37,7 @@ jobs:
           # We check build.gradle in the app module
           if [ -f "android/app/build.gradle" ]; then
             if ! grep -q "namespace" android/app/build.gradle; then
-              sed -i 's/android {/android {\n    namespace "com.antigravity.applemusic"/' android/app/build.gradle
+              sed -i 's/android {/android {\n    namespace "com.samara.vibe"/' android/app/build.gradle
             fi
           fi
           

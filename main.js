@@ -7,8 +7,10 @@ let isPlaying = false;
 let playbackInterval = null;
 let activeBgLayer = 1;
 let ytPlayer = null;
+let isYTReady = false;
 let currentMode = 'audio'; // 'audio' or 'video'
 let activeEngine = 'youtube'; // 'youtube', 'local-audio', 'local-video'
+let localUrls = new Set(); // To track and revoke Blob URLs
 
 // DOM Elements
 const miniPlayer = document.getElementById('miniPlayer');
@@ -68,17 +70,26 @@ function onYouTubeIframeAPIReady() {
       'disablekb': 1,
       'fs': 0,
       'modestbranding': 1,
-      'rel': 0
+      'rel': 0,
+      'origin': window.location.origin
     },
     events: {
       'onReady': onPlayerReady,
-      'onStateChange': onPlayerStateChange
+      'onStateChange': onPlayerStateChange,
+      'onError': onPlayerError
     }
   });
 }
 
 function onPlayerReady(event) {
+  isYTReady = true;
   console.log("YT Player Ready");
+}
+
+function onPlayerError(event) {
+  console.error("YT Player Error:", event.data);
+  // Fallback or skip
+  nextSong();
 }
 
 function onPlayerStateChange(event) {
@@ -146,29 +157,33 @@ function renderRadio() {
 
 // Playback Logic
 window.playSong = function(index) {
+  if (index < 0 || index >= songs.length) return;
+  
   currentSongIndex = index;
   const song = songs[index];
   
-  // Stop all engines
   stopAllEngines();
 
   activeEngine = song.type === 'youtube' ? 'youtube' : 
-                 (song.type === 'local' && song.fileType.startsWith('video') ? 'local-video' : 'local-audio');
+                 (song.type === 'local' && song.fileType && song.fileType.startsWith('video') ? 'local-video' : 'local-audio');
 
   updateSongUI(song);
   
   if (activeEngine === 'youtube') {
-    if (ytPlayer && ytPlayer.loadVideoById) {
+    if (isYTReady && ytPlayer && ytPlayer.loadVideoById) {
       ytPlayer.loadVideoById(song.source);
-      // YT starts playing automatically if loadVideoById is called
+    } else {
+      // If YT not ready, retry in 1s
+      setTimeout(() => playSong(index), 1000);
+      return;
     }
   } else if (activeEngine === 'local-audio') {
     localAudio.src = song.source;
-    localAudio.play();
+    localAudio.play().catch(console.error);
     isPlaying = true;
   } else if (activeEngine === 'local-video') {
     localVideo.src = song.source;
-    localVideo.play();
+    localVideo.play().catch(console.error);
     isPlaying = true;
     setMode('video');
   }
@@ -178,7 +193,7 @@ window.playSong = function(index) {
 };
 
 function stopAllEngines() {
-  if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+  if (ytPlayer && ytPlayer.stopVideo && isYTReady) ytPlayer.stopVideo();
   localAudio.pause();
   localAudio.currentTime = 0;
   localVideo.pause();
@@ -201,9 +216,7 @@ function updateSongUI(song, initial = false) {
   durationEl.textContent = formatTime(song.duration || 0);
   renderLyrics(song);
   
-  // If it's a video type but we are in audio mode, show artwork. 
-  // If we want to force video mode for videos:
-  if (song.type === 'youtube' || (song.type === 'local' && song.fileType.startsWith('video'))) {
+  if (song.type === 'youtube' || (song.type === 'local' && song.fileType && song.fileType.startsWith('video'))) {
     document.getElementById('toggleVideo').style.display = 'block';
   } else {
     document.getElementById('toggleVideo').style.display = 'none';
@@ -216,7 +229,6 @@ function setMode(mode) {
   if (mode === 'video') {
     videoContainer.classList.add('active');
     artworkContainer.classList.add('hidden');
-    // If YouTube, we need to move the iframe to the drawer's video container
     if (activeEngine === 'youtube') {
       videoContainer.appendChild(document.getElementById('ytPlayerContainer'));
       document.getElementById('ytPlayerContainer').style.position = 'relative';
@@ -230,7 +242,6 @@ function setMode(mode) {
   } else {
     videoContainer.classList.remove('active');
     artworkContainer.classList.remove('hidden');
-    // Move YT player back to hidden
     document.body.appendChild(document.getElementById('ytPlayerContainer'));
     document.getElementById('ytPlayerContainer').style.position = 'absolute';
     document.getElementById('ytPlayerContainer').style.top = '-9999px';
@@ -268,7 +279,7 @@ function updateProgressUI() {
   let current = 0;
   let total = 0;
 
-  if (activeEngine === 'youtube' && ytPlayer && ytPlayer.getCurrentTime) {
+  if (activeEngine === 'youtube' && isYTReady && ytPlayer && ytPlayer.getCurrentTime) {
     current = ytPlayer.getCurrentTime();
     total = ytPlayer.getDuration();
   } else if (activeEngine === 'local-audio') {
@@ -289,7 +300,7 @@ function updateProgressUI() {
 }
 
 function formatTime(seconds) {
-  if (isNaN(seconds)) return "0:00";
+  if (isNaN(seconds) || seconds < 0) return "0:00";
   const min = Math.floor(seconds / 60);
   const sec = Math.floor(seconds % 60);
   return `${min}:${sec.toString().padStart(2, '0')}`;
@@ -297,14 +308,14 @@ function formatTime(seconds) {
 
 function togglePlayback() {
   if (isPlaying) {
-    if (activeEngine === 'youtube') ytPlayer.pauseVideo();
+    if (activeEngine === 'youtube' && isYTReady) ytPlayer.pauseVideo();
     else if (activeEngine === 'local-audio') localAudio.pause();
     else if (activeEngine === 'local-video') localVideo.pause();
     isPlaying = false;
   } else {
-    if (activeEngine === 'youtube') ytPlayer.playVideo();
-    else if (activeEngine === 'local-audio') localAudio.play();
-    else if (activeEngine === 'local-video') localVideo.play();
+    if (activeEngine === 'youtube' && isYTReady) ytPlayer.playVideo();
+    else if (activeEngine === 'local-audio') localAudio.play().catch(console.error);
+    else if (activeEngine === 'local-video') localVideo.play().catch(console.error);
     isPlaying = true;
   }
   updateControlsUI();
@@ -334,28 +345,24 @@ function prevSong() {
 let searchTimeout = null;
 searchInput.addEventListener('input', (e) => {
   clearTimeout(searchTimeout);
-  const query = e.target.value;
-  if (query.length < 3) {
+  const query = e.target.value.trim();
+  if (query.length < 2) {
     searchResults.innerHTML = '';
     return;
   }
-  searchTimeout = setTimeout(() => performSearch(query), 500);
+  searchTimeout = setTimeout(() => performSearch(query), 400);
 });
 
 async function performSearch(query) {
-  // Since we don't have a full YouTube Data API key here, 
-  // we can use a public search suggestion API to show "some" results
-  // Or for this demo, I'll simulate fetching from YouTube
-  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching YouTube...</div>';
+  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching...</div>';
   
   try {
-    // Note: In a real app, you'd use a backend to fetch actual YT search results.
-    // Here I will use a mocked set of results for the demo that looks real.
     const mockResults = [
       { id: 'kJQP7kiw5Fk', title: 'Despacito', artist: 'Luis Fonsi', thumb: 'https://i.ytimg.com/vi/kJQP7kiw5Fk/default.jpg' },
       { id: 'JGwWNGJdvx8', title: 'Shape of You', artist: 'Ed Sheeran', thumb: 'https://i.ytimg.com/vi/JGwWNGJdvx8/default.jpg' },
       { id: 'f_E_6B66SAY', title: 'Ghost', artist: 'Justin Bieber', thumb: 'https://i.ytimg.com/vi/f_E_6B66SAY/default.jpg' },
-      { id: '7_uG-sW3f68', title: 'Mendung Tanpo Udan', artist: 'Ndarboy Genk', thumb: 'https://i.ytimg.com/vi/7_uG-sW3f68/default.jpg' }
+      { id: '7_uG-sW3f68', title: 'Mendung Tanpo Udan', artist: 'Ndarboy Genk', thumb: 'https://i.ytimg.com/vi/7_uG-sW3f68/default.jpg' },
+      { id: 'dQw4w9WgXcQ', title: 'Never Gonna Give You Up', artist: 'Rick Astley', thumb: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg' }
     ].filter(item => item.title.toLowerCase().includes(query.toLowerCase()) || item.artist.toLowerCase().includes(query.toLowerCase()));
 
     if (mockResults.length === 0) {
@@ -380,6 +387,13 @@ async function performSearch(query) {
 }
 
 window.addAndPlay = function(id, title, artist, artwork) {
+  // Check if already in songs
+  const existingIndex = songs.findIndex(s => s.source === id);
+  if (existingIndex !== -1) {
+    playSong(existingIndex);
+    return;
+  }
+
   const newSong = {
     id: Date.now(),
     title,
@@ -400,11 +414,12 @@ fileInput.addEventListener('change', (e) => {
   const files = Array.from(e.target.files);
   files.forEach(file => {
     const url = URL.createObjectURL(file);
+    localUrls.add(url);
     const newSong = {
       id: Date.now(),
       title: file.name.replace(/\.[^/.]+$/, ""),
       artist: "Local File",
-      artwork: "assets/art4.png", // Default for local
+      artwork: "assets/art4.png", 
       type: 'local',
       source: url,
       fileType: file.type,
@@ -422,7 +437,8 @@ function setupEventListeners() {
       const tab = item.getAttribute('data-tab');
       document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-      document.getElementById(tab).classList.add('active');
+      const target = document.getElementById(tab);
+      if (target) target.classList.add('active');
       item.classList.add('active');
     });
   });
@@ -451,10 +467,14 @@ function setupEventListeners() {
 
   document.getElementById('volumeSlider').addEventListener('input', (e) => {
     const vol = e.target.value;
-    if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(vol);
+    if (ytPlayer && isYTReady && ytPlayer.setVolume) ytPlayer.setVolume(vol);
     localAudio.volume = vol / 100;
     localVideo.volume = vol / 100;
   });
+
+  // Handle errors
+  localAudio.onerror = () => console.error("Audio error");
+  localVideo.onerror = () => console.error("Video error");
 }
 
 function openDrawer() {
@@ -477,7 +497,7 @@ function renderLyrics(song) {
 
 function syncLyrics(time) {
   const song = songs[currentSongIndex];
-  if (!song.lyrics) return;
+  if (!song || !song.lyrics) return;
   
   song.lyrics.forEach((l, i) => {
     const el = document.getElementById(`lyric-${i}`);
@@ -499,5 +519,10 @@ function setupSwipeGestures() {
     if (diff > 100) closeDrawer();
   });
 }
+
+// Cleanup Blob URLs on unload
+window.addEventListener('unload', () => {
+  localUrls.forEach(url => URL.revokeObjectURL(url));
+});
 
 init();
