@@ -20,33 +20,34 @@ jobs:
           java-version: '17'
 
       - name: Install Dependencies
-        run: npm install --no-package-lock
+        run: npm install
 
       - name: Build Web Assets
         run: |
           mkdir -p www
           cp -r assets index.html main.js style.css data.js www/
-          ls -R www
 
       - name: Initialize & Sync Capacitor
         run: |
-          npx cap init "AppleMusicClone" "com.antigravity.applemusic" --web-dir www
           if [ ! -d "android" ]; then
             npx cap add android
           fi
+          
           # Surgical Patch: Inject namespace if missing (Capacitor 6 requirement)
-          if ! grep -q "namespace" android/app/build.gradle; then
-            sed -i 's/android {/android {\n    namespace "com.antigravity.applemusic"/' android/app/build.gradle
+          # We check build.gradle in the app module
+          if [ -f "android/app/build.gradle" ]; then
+            if ! grep -q "namespace" android/app/build.gradle; then
+              sed -i 's/android {/android {\n    namespace "com.antigravity.applemusic"/' android/app/build.gradle
+            fi
           fi
-          # Surgical Patch: Setup local.properties
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          
           npx cap sync android
 
       - name: Build with Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --info
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
