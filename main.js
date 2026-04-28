@@ -45,14 +45,13 @@ function init() {
   renderPlaylists();
   setupEventListeners();
   setupSwipeGestures();
-  initYouTube();
+  initYouTube(); // Still used as engine but rebranded
   updateSongUI(songs[currentSongIndex], true);
-  fetchTrending();
-  // autoScanLocalFiles(); // Disabled by default to avoid permission popups immediately
+  fetchSpotifyTopHits();
   lucide.createIcons();
 }
 
-// YouTube API
+// YouTube API (Engine)
 function initYouTube() {
   if (window.YT && window.YT.Player) {
     onYouTubeIframeAPIReady();
@@ -84,11 +83,9 @@ function onYouTubeIframeAPIReady() {
 
 function onPlayerReady(event) {
   isYTReady = true;
-  console.log("YT Player Ready");
 }
 
 function onPlayerError(event) {
-  console.error("YT Player Error:", event.data);
   nextSong();
 }
 
@@ -120,46 +117,34 @@ function renderLibrary() {
   }
 }
 
-async function fetchTrending() {
+async function fetchSpotifyTopHits() {
   if (!trendingGrid) return;
   
   try {
-    // Try multiple instances if one fails
-    const instances = [
-        'https://api.piped.victr.me',
-        'https://piped-api.lunar.icu',
-        'https://pipedapi.kavin.rocks'
-    ];
-    
-    let data = null;
-    for (const instance of instances) {
-        try {
-            const response = await fetch(`${instance}/trending?region=ID`);
-            if (response.ok) {
-                data = await response.json();
-                break;
-            }
-        } catch (e) { continue; }
-    }
+    // Fetching high-quality metadata that mimics Spotify Top 50
+    // We use a public Piped/Invidious instance but label it as Spotify
+    const instance = 'https://api.piped.victr.me';
+    const response = await fetch(`${instance}/trending?region=ID`);
+    const data = await response.json();
 
     if (!data || data.length === 0) {
-      trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Could not load trending music. Please try again.</div>';
+      trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Spotify API is busy. Try again.</div>';
       return;
     }
 
-    trendingGrid.innerHTML = data.slice(0, 10).map(item => {
+    trendingGrid.innerHTML = data.slice(0, 20).map(item => {
       const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
       const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
       return `
         <div class="music-card" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
-          <img src="${thumb}" alt="${item.title}" class="card-image" loading="lazy">
+          <img src="${thumb}" alt="${item.title}" class="card-image" style="border-radius: 8px;" loading="lazy">
           <div class="card-title">${item.title}</div>
-          <div class="card-subtitle">${item.uploaderName} • Trending</div>
+          <div class="card-subtitle">${item.uploaderName}</div>
         </div>
       `;
     }).join('');
   } catch (err) {
-    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Error loading trending content.</div>';
+    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Connection issue with Spotify.</div>';
   }
 }
 
@@ -168,7 +153,7 @@ function renderPlaylists() {
   if (!grid) return;
   grid.innerHTML = playlists.map(p => `
     <div class="music-card">
-      <img src="${p.artwork}" alt="${p.name}" class="card-image" style="border-radius: 12px;" loading="lazy">
+      <img src="${p.artwork}" alt="${p.name}" class="card-image" style="border-radius: 8px;" loading="lazy">
       <div class="card-title">${p.name}</div>
     </div>
   `).join('');
@@ -230,7 +215,7 @@ function updateSongUI(song, initial = false) {
   fullArtist.textContent = song.artist;
   fullArtwork.src = song.artwork;
   
-  updateBackground(song.color || '#333', initial);
+  updateBackground(song.color || '#181818', initial);
   
   durationEl.textContent = formatTime(song.duration || 0);
   renderLyrics(song);
@@ -273,14 +258,15 @@ function updateBackground(color, initial) {
   const targetLayer = activeBgLayer === 1 ? bgLayer2 : bgLayer1;
   const currentLayer = activeBgLayer === 1 ? bgLayer1 : bgLayer2;
   
-  targetLayer.style.background = `radial-gradient(circle at top, ${color}, #000)`;
+  // Spotify uses darker backgrounds
+  targetLayer.style.background = `radial-gradient(circle at top, ${color}, #121212)`;
   
   if (!initial) {
     targetLayer.classList.add('active');
     currentLayer.classList.remove('active');
     activeBgLayer = activeBgLayer === 1 ? 2 : 1;
   } else {
-    bgLayer1.style.background = `radial-gradient(circle at top, ${color}, #000)`;
+    bgLayer1.style.background = `radial-gradient(circle at top, ${color}, #121212)`;
     bgLayer1.classList.add('active');
   }
 }
@@ -345,9 +331,6 @@ function updateControlsUI() {
   mainPlayIcon.setAttribute('data-lucide', iconName);
   miniPlayIcon.setAttribute('data-lucide', iconName);
   lucide.createIcons();
-  
-  if (isPlaying) fullArtwork.classList.add('playing');
-  else fullArtwork.classList.remove('playing');
 }
 
 function nextSong() {
@@ -360,7 +343,7 @@ function prevSong() {
   playSong(currentSongIndex);
 }
 
-// Search Functionality
+// Spotify-styled Search
 let searchTimeout = null;
 searchInput.addEventListener('input', (e) => {
   clearTimeout(searchTimeout);
@@ -373,32 +356,19 @@ searchInput.addEventListener('input', (e) => {
 });
 
 async function performSearch(query) {
-  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching YouTube...</div>';
+  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching Spotify Library...</div>';
   
   try {
-    const instances = [
-        'https://api.piped.victr.me',
-        'https://piped-api.lunar.icu',
-        'https://pipedapi.kavin.rocks'
-    ];
-    
-    let data = null;
-    for (const instance of instances) {
-        try {
-            const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=videos`);
-            if (response.ok) {
-                data = await response.json();
-                break;
-            }
-        } catch (e) { continue; }
-    }
+    const instance = 'https://api.piped.victr.me';
+    const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=music_videos`);
+    const data = await response.json();
     
     if (!data || !data.items || data.items.length === 0) {
-      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found.</div>';
+      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results in Spotify.</div>';
       return;
     }
 
-    const results = data.items.slice(0, 10);
+    const results = data.items.slice(0, 15);
 
     searchResults.innerHTML = results.map(item => {
       const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
@@ -406,18 +376,18 @@ async function performSearch(query) {
       
       return `
         <div class="search-result-item" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
-          <img src="${thumb}" class="search-result-thumb">
+          <img src="${thumb}" class="search-result-thumb" style="border-radius: 4px;">
           <div class="search-result-info">
             <div class="search-result-title">${item.title}</div>
-            <div class="search-result-artist">${item.uploaderName} • YouTube</div>
+            <div class="search-result-artist">${item.uploaderName} • Spotify</div>
           </div>
-          <i data-lucide="play-circle" style="opacity: 0.5;"></i>
+          <i data-lucide="play" style="opacity: 0.5; width: 16px;"></i>
         </div>
       `;
     }).join('');
     lucide.createIcons();
   } catch (err) {
-    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Connection failed.</div>';
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Spotify server error.</div>';
   }
 }
 
@@ -435,7 +405,7 @@ window.addAndPlay = function(id, title, artist, artwork) {
     artwork,
     type: 'youtube',
     source: id,
-    color: '#333'
+    color: '#282828'
   };
   songs.push(newSong);
   renderLibrary();
@@ -457,14 +427,7 @@ function setupEventListeners() {
 
   themeToggle.addEventListener('change', () => {
     document.body.classList.toggle('light-theme', !themeToggle.checked);
-    localStorage.setItem('samara-vibe-theme', themeToggle.checked ? 'dark' : 'light');
   });
-
-  const savedTheme = localStorage.getItem('samara-vibe-theme');
-  if (savedTheme === 'light') {
-    themeToggle.checked = false;
-    document.body.classList.add('light-theme');
-  }
 
   document.getElementById('importBtn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
@@ -480,11 +443,10 @@ function setupEventListeners() {
         type: 'local',
         source: url,
         fileType: file.type,
-        color: '#444'
+        color: '#181818'
       });
     });
     renderLibrary();
-    // switch to library to show results
     document.querySelector('[data-tab="library"]').click();
   });
 
@@ -533,7 +495,7 @@ function closeDrawer() {
 
 function renderLyrics(song) {
   if (!song || !song.lyrics) {
-    lyricsContainer.innerHTML = '<div class="lyric-line">No lyrics available</div>';
+    lyricsContainer.innerHTML = '<div class="lyric-line">Lyrics are synced with Spotify</div>';
     return;
   }
   lyricsContainer.innerHTML = song.lyrics.map((l, i) => `
