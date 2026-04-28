@@ -459,6 +459,7 @@ function setupEventListeners() {
   });
 
   document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+  document.getElementById('backBtnDrawer').addEventListener('click', closeDrawer);
   document.getElementById('mainPlayPause').addEventListener('click', togglePlayback);
   document.getElementById('miniPlayPause').addEventListener('click', (e) => {
     e.stopPropagation();
