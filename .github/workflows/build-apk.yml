@@ -31,17 +31,9 @@ jobs:
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
+          else
+            npx cap sync android
           fi
-          
-          # Surgical Patch: Inject namespace if missing (Capacitor 6 requirement)
-          # We check build.gradle in the app module
-          if [ -f "android/app/build.gradle" ]; then
-            if ! grep -q "namespace" android/app/build.gradle; then
-              sed -i 's/android {/android {\n    namespace "com.samara.vibe"/' android/app/build.gradle
-            fi
-          fi
-          
-          npx cap sync android
 
       - name: Build with Gradle
         run: |
