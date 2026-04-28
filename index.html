@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Samara's Vibe</title>
     <link rel="stylesheet" href="style.css">
     <!-- Lucide Icons -->
@@ -10,6 +12,7 @@
     <!-- YouTube IFrame API -->
     <script src="https://www.youtube.com/iframe_api"></script>
 </head>
+
 <body>
     <div id="app">
         <!-- Welcome Screen -->
@@ -17,7 +20,7 @@
             <div class="welcome-content">
                 <div class="heart-icon"><i data-lucide="heart" fill="currentColor"></i></div>
                 <h1 class="welcome-text">Welcome to Samara's Vibe</h1>
-                <p class="welcome-subtext">made with love by your boyfie <3</p>
+                <p class="welcome-subtext">made with love by your boyfie <3< /p>
             </div>
         </div>
 
@@ -43,14 +46,15 @@
                     </button>
                     <input type="file" id="fileInput" multiple accept="audio/*,video/*" style="display: none;">
                 </div>
-                
+
                 <div class="grid-container" id="libraryGrid">
                     <!-- Cards will be injected here -->
                 </div>
 
                 <h2 class="section-title" style="font-size: 20px;">Spotify Top 50 Global</h2>
                 <div id="trendingGrid" class="grid-container" style="grid-template-columns: repeat(2, 1fr);">
-                    <div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Fetching Spotify hits...</div>
+                    <div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Fetching Spotify
+                        hits...</div>
                 </div>
 
                 <h2 class="section-title" style="font-size: 20px;">Playlists</h2>
@@ -85,11 +89,23 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    
+
+                    <div class="settings-group-title">Spotify Integration</div>
+                    <div class="settings-card">
+                        <p style="margin-bottom: 10px; color: var(--text-secondary); font-size: 13px;">Get your Client ID from developer.spotify.com</p>
+                        <input type="text" id="spotifyClientId" placeholder="Enter Spotify Client ID" class="settings-input" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; color: white; margin-bottom: 10px;">
+                        <button id="spotifyAuthBtn" class="action-btn" style="width: 100%; justify-content: center; background: #1DB954; color: black;">
+                            <i data-lucide="log-in"></i>
+                            <span>Authorize Spotify</span>
+                        </button>
+                        <div id="spotifyStatus" style="margin-top: 10px; font-size: 12px; opacity: 0.7;">Status: Not Connected</div>
+                    </div>
+
                     <div class="settings-group-title">About</div>
                     <div class="settings-card">
                         <p style="margin-bottom: 10px; color: var(--text-secondary);">Samara's Vibe v1.3.0</p>
-                        <p style="line-height: 1.5;">Penyanyi favorite bubu : <br><strong>the weeknd, bruno mars, central cee, sza, dll</strong></p>
+                        <p style="line-height: 1.5;">Penyanyi favorite bubu : <br><strong>the weeknd, bruno mars,
+                                central cee, sza, dll</strong></p>
                     </div>
                 </div>
             </section>
@@ -100,7 +116,8 @@
             <img src="assets/art1.png" alt="Artwork" class="mini-artwork" id="miniArtwork">
             <div class="mini-info">
                 <div class="mini-title" id="miniTitle">Song Title</div>
-                <div class="mini-artist" id="miniArtist" style="font-size: 12px; color: var(--text-secondary);">Artist Name</div>
+                <div class="mini-artist" id="miniArtist" style="font-size: 12px; color: var(--text-secondary);">Artist
+                    Name</div>
             </div>
             <div class="mini-controls">
                 <button class="control-btn" id="miniPlayPause">
@@ -136,7 +153,7 @@
                 </button>
                 <div class="drawer-handle" id="closeDrawer" style="flex: 1; margin: 0;"></div>
             </div>
-            
+
             <!-- Lyrics Overlay -->
             <div class="lyrics-container" id="lyricsContainer"></div>
 
@@ -172,11 +189,13 @@
 
             <div class="main-controls">
                 <button class="control-btn"><i data-lucide="shuffle"></i></button>
-                <button class="control-btn" id="prevBtn"><i data-lucide="skip-back" style="width: 32px; height: 32px;"></i></button>
+                <button class="control-btn" id="prevBtn"><i data-lucide="skip-back"
+                        style="width: 32px; height: 32px;"></i></button>
                 <button class="control-btn play-pause-btn" id="mainPlayPause">
                     <i data-lucide="play" style="width: 64px; height: 64px;" id="mainPlayIcon"></i>
                 </button>
-                <button class="control-btn" id="nextBtn"><i data-lucide="skip-forward" style="width: 32px; height: 32px;"></i></button>
+                <button class="control-btn" id="nextBtn"><i data-lucide="skip-forward"
+                        style="width: 32px; height: 32px;"></i></button>
                 <button class="control-btn"><i data-lucide="repeat"></i></button>
             </div>
 
@@ -186,7 +205,8 @@
                 <i data-lucide="volume-2" style="opacity: 0.5;"></i>
             </div>
 
-            <div style="display: flex; justify-content: space-around; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px;">
+            <div
+                style="display: flex; justify-content: space-around; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px;">
                 <button class="control-btn" id="toggleLyrics"><i data-lucide="quote"></i></button>
                 <button class="control-btn"><i data-lucide="airplay"></i></button>
                 <button class="control-btn"><i data-lucide="list"></i></button>
@@ -200,4 +220,5 @@
         lucide.createIcons();
     </script>
 </body>
+
 </html>

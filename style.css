@@ -397,6 +397,46 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 /* Action Buttons */
+/* Spotify Integration Styles */
+.settings-input:focus {
+    outline: none;
+    border-color: #1DB954 !important;
+    background: rgba(255,255,255,0.1) !important;
+}
+
+#spotifyAuthBtn {
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+#spotifyAuthBtn:active {
+    transform: scale(0.98);
+    filter: brightness(1.2);
+}
+
+.search-result-artist {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.search-result-artist::after {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.8;
+}
+
+/* Accents for Spotify results */
+.music-card[onclick*="playSpotifyTrack"] .card-title {
+    color: #1DB954;
+}
+
+.search-result-item[onclick*="playSpotifyTrack"] .search-result-title {
+    color: #1DB954;
+}
 .action-btn {
   background: var(--card-bg);
   border: 1px solid var(--border-color);

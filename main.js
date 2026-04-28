@@ -12,6 +12,88 @@ let currentMode = 'audio';
 let activeEngine = 'youtube';
 let localUrls = new Set(); 
 
+// Spotify State
+const SPOTIFY_CONFIG = {
+  clientId: localStorage.getItem('spotify_client_id') || '',
+  accessToken: localStorage.getItem('spotify_access_token') || '',
+  tokenExpiry: localStorage.getItem('spotify_token_expiry') || 0,
+  redirectUri: window.location.origin + window.location.pathname
+};
+
+const SpotifyService = {
+  async init() {
+    this.handleAuthCallback();
+    this.updateStatusUI();
+    
+    const clientIdInput = document.getElementById('spotifyClientId');
+    if (clientIdInput) {
+      clientIdInput.value = SPOTIFY_CONFIG.clientId;
+      clientIdInput.addEventListener('input', (e) => {
+        SPOTIFY_CONFIG.clientId = e.target.value;
+        localStorage.setItem('spotify_client_id', e.target.value);
+      });
+    }
+
+    document.getElementById('spotifyAuthBtn')?.addEventListener('click', () => this.authorize());
+  },
+
+  authorize() {
+    if (!SPOTIFY_CONFIG.clientId) {
+      alert('Please enter a Spotify Client ID first.');
+      return;
+    }
+    const scope = 'playlist-read-private user-library-read';
+    const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_CONFIG.redirectUri)}&scope=${encodeURIComponent(scope)}`;
+    window.location.href = authUrl;
+  },
+
+  handleAuthCallback() {
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const expiresIn = params.get('expires_in');
+      
+      if (accessToken) {
+        SPOTIFY_CONFIG.accessToken = accessToken;
+        SPOTIFY_CONFIG.tokenExpiry = Date.now() + (parseInt(expiresIn) * 1000);
+        localStorage.setItem('spotify_access_token', accessToken);
+        localStorage.setItem('spotify_token_expiry', SPOTIFY_CONFIG.tokenExpiry);
+        window.location.hash = ''; // Clean up URL
+      }
+    }
+  },
+
+  isAuthorized() {
+    return SPOTIFY_CONFIG.accessToken && Date.now() < SPOTIFY_CONFIG.tokenExpiry;
+  },
+
+  updateStatusUI() {
+    const statusEl = document.getElementById('spotifyStatus');
+    if (statusEl) {
+      if (this.isAuthorized()) {
+        statusEl.textContent = 'Status: Connected ✅';
+        statusEl.style.color = '#1DB954';
+      } else {
+        statusEl.textContent = 'Status: Not Connected ❌';
+        statusEl.style.color = 'inherit';
+      }
+    }
+  },
+
+  async fetch(endpoint) {
+    if (!this.isAuthorized()) throw new Error('Not authorized');
+    const response = await fetch(`https://api.spotify.com/v1/${endpoint}`, {
+      headers: { 'Authorization': `Bearer ${SPOTIFY_CONFIG.accessToken}` }
+    });
+    if (response.status === 401) {
+      this.authorize(); // Re-auth if token expired
+      return null;
+    }
+    return response.json();
+  }
+};
+
 // DOM Elements
 const miniPlayer = document.getElementById('miniPlayer');
 const nowPlayingDrawer = document.getElementById('nowPlayingDrawer');
@@ -47,6 +129,7 @@ function init() {
   setupSwipeGestures();
   initYouTube(); // Still used as engine but rebranded
   updateSongUI(songs[currentSongIndex], true);
+  SpotifyService.init();
   fetchSpotifyTopHits();
   lucide.createIcons();
 }
@@ -122,38 +205,55 @@ async function fetchSpotifyTopHits() {
   
   trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Fetching latest Spotify hits...</div>';
 
-  const instances = [
-    'https://api.piped.victr.me',
-    'https://piped-api.lunar.icu',
-    'https://pipedapi.kavin.rocks',
-    'https://piped-api.garudalinux.org',
-    'https://pipedapi.moomoo.me'
-  ];
-  
-  let data = null;
-  let successInstance = '';
-
-  for (const instance of instances) {
+  // Try Spotify Official API first
+  if (SpotifyService.isAuthorized()) {
     try {
-      console.log(`Trying Spotify fetch from: ${instance}`);
-      const response = await fetch(`${instance}/trending?region=ID`, { signal: AbortSignal.timeout(5000) });
-      if (response.ok) {
-        data = await response.json();
-        successInstance = instance;
-        break;
+      // Global Top 50 playlist ID
+      const data = await SpotifyService.fetch('playlists/37i9dQZEVXbMDoHDm92rtO/tracks?limit=20');
+      if (data && data.items) {
+        trendingGrid.innerHTML = data.items.map(item => {
+          const track = item.track;
+          const thumb = track.album.images[0]?.url || 'assets/art1.png';
+          const title = track.name.replace(/'/g, "\\'");
+          const artist = track.artists.map(a => a.name).join(', ').replace(/'/g, "\\'");
+          return `
+            <div class="music-card" onclick="playSpotifyTrack('${title}', '${artist}', '${thumb}')">
+              <img src="${thumb}" alt="${title}" class="card-image" style="border-radius: 8px; aspect-ratio: 1/1; object-fit: cover;" loading="lazy">
+              <div class="card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${track.name}</div>
+              <div class="card-subtitle">${track.artists[0].name}</div>
+            </div>
+          `;
+        }).join('');
+        return;
       }
     } catch (e) {
-      console.warn(`Failed fetch from ${instance}:`, e.message);
-      continue; 
+      console.warn('Spotify API failed, falling back to Piped:', e);
     }
   }
 
+  // Fallback to Piped API (Original logic)
+  const instances = [
+    'https://api.piped.victr.me',
+    'https://piped-api.lunar.icu',
+    'https://pipedapi.kavin.rocks'
+  ];
+  
+  let data = null;
+  for (const instance of instances) {
+    try {
+      const response = await fetch(`${instance}/trending?region=ID`, { signal: AbortSignal.timeout(5000) });
+      if (response.ok) {
+        data = await response.json();
+        break;
+      }
+    } catch (e) { continue; }
+  }
+
   if (!data || data.length === 0) {
-    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Spotify data source is temporarily unavailable. Please pull to refresh later.</div>';
+    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Authorize Spotify in Settings for real Top 50!</div>';
     return;
   }
 
-  console.log(`Successfully fetched trending from ${successInstance}`);
   trendingGrid.innerHTML = data.slice(0, 20).map(item => {
     const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
     const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
@@ -166,6 +266,30 @@ async function fetchSpotifyTopHits() {
     `;
   }).join('');
 }
+
+// New helper to play a track from Spotify metadata
+window.playSpotifyTrack = async function(title, artist, artwork) {
+  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Matching with YouTube audio...</div>';
+  const query = `${title} ${artist}`;
+  
+  try {
+    // Search YouTube via Piped to get the best match
+    const instance = 'https://api.piped.victr.me';
+    const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=music_videos`);
+    const data = await response.json();
+    
+    if (data && data.items && data.items.length > 0) {
+      const bestMatch = data.items[0];
+      const id = bestMatch.url.includes('v=') ? bestMatch.url.split('v=')[1] : bestMatch.url.split('/').pop();
+      addAndPlay(id, title, artist, artwork);
+    } else {
+      alert("Could not find a matching video on YouTube.");
+    }
+  } catch (err) {
+    console.error("Mapping failed:", err);
+    alert("Playback error. Try searching manually.");
+  }
+};
 
 function renderPlaylists() {
   const grid = document.getElementById('playlistGrid');
@@ -378,30 +502,55 @@ searchInput.addEventListener('input', (e) => {
 });
 
 async function performSearch(query) {
-  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching Spotify Library...</div>';
+  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching...</div>';
   
+  if (SpotifyService.isAuthorized()) {
+    try {
+      const data = await SpotifyService.fetch(`search?q=${encodeURIComponent(query)}&type=track&limit=15`);
+      if (data && data.tracks && data.tracks.items.length > 0) {
+        searchResults.innerHTML = data.tracks.items.map(track => {
+          const thumb = track.album.images[0]?.url || 'assets/art1.png';
+          const title = track.name.replace(/'/g, "\\'");
+          const artist = track.artists.map(a => a.name).join(', ').replace(/'/g, "\\'");
+          return `
+            <div class="search-result-item" onclick="playSpotifyTrack('${title}', '${artist}', '${thumb}')">
+              <img src="${thumb}" class="search-result-thumb" style="border-radius: 4px;">
+              <div class="search-result-info">
+                <div class="search-result-title">${track.name}</div>
+                <div class="search-result-artist">${track.artists[0].name} • Spotify</div>
+              </div>
+              <i data-lucide="play" style="opacity: 0.5; width: 16px;"></i>
+            </div>
+          `;
+        }).join('');
+        lucide.createIcons();
+        return;
+      }
+    } catch (e) {
+      console.warn('Spotify search failed, falling back to YouTube:', e);
+    }
+  }
+
+  // Fallback to Piped/YouTube search
   try {
     const instance = 'https://api.piped.victr.me';
     const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=music_videos`);
     const data = await response.json();
     
     if (!data || !data.items || data.items.length === 0) {
-      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results in Spotify.</div>';
+      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found.</div>';
       return;
     }
 
-    const results = data.items.slice(0, 15);
-
-    searchResults.innerHTML = results.map(item => {
+    searchResults.innerHTML = data.items.slice(0, 15).map(item => {
       const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
       const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-      
       return `
         <div class="search-result-item" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
           <img src="${thumb}" class="search-result-thumb" style="border-radius: 4px;">
           <div class="search-result-info">
             <div class="search-result-title">${item.title}</div>
-            <div class="search-result-artist">${item.uploaderName} • Spotify</div>
+            <div class="search-result-artist">${item.uploaderName} • YouTube</div>
           </div>
           <i data-lucide="play" style="opacity: 0.5; width: 16px;"></i>
         </div>
@@ -409,7 +558,7 @@ async function performSearch(query) {
     }).join('');
     lucide.createIcons();
   } catch (err) {
-    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Spotify server error.</div>';
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Search error. Check connection.</div>';
   }
 }
 
