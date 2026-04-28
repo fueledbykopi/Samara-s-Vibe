@@ -120,32 +120,51 @@ function renderLibrary() {
 async function fetchSpotifyTopHits() {
   if (!trendingGrid) return;
   
-  try {
-    // Fetching high-quality metadata that mimics Spotify Top 50
-    // We use a public Piped/Invidious instance but label it as Spotify
-    const instance = 'https://api.piped.victr.me';
-    const response = await fetch(`${instance}/trending?region=ID`);
-    const data = await response.json();
+  trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Fetching latest Spotify hits...</div>';
 
-    if (!data || data.length === 0) {
-      trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Spotify API is busy. Try again.</div>';
-      return;
+  const instances = [
+    'https://api.piped.victr.me',
+    'https://piped-api.lunar.icu',
+    'https://pipedapi.kavin.rocks',
+    'https://piped-api.garudalinux.org',
+    'https://pipedapi.moomoo.me'
+  ];
+  
+  let data = null;
+  let successInstance = '';
+
+  for (const instance of instances) {
+    try {
+      console.log(`Trying Spotify fetch from: ${instance}`);
+      const response = await fetch(`${instance}/trending?region=ID`, { signal: AbortSignal.timeout(5000) });
+      if (response.ok) {
+        data = await response.json();
+        successInstance = instance;
+        break;
+      }
+    } catch (e) {
+      console.warn(`Failed fetch from ${instance}:`, e.message);
+      continue; 
     }
-
-    trendingGrid.innerHTML = data.slice(0, 20).map(item => {
-      const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
-      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-      return `
-        <div class="music-card" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
-          <img src="${thumb}" alt="${item.title}" class="card-image" style="border-radius: 8px;" loading="lazy">
-          <div class="card-title">${item.title}</div>
-          <div class="card-subtitle">${item.uploaderName}</div>
-        </div>
-      `;
-    }).join('');
-  } catch (err) {
-    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Connection issue with Spotify.</div>';
   }
+
+  if (!data || data.length === 0) {
+    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Spotify data source is temporarily unavailable. Please pull to refresh later.</div>';
+    return;
+  }
+
+  console.log(`Successfully fetched trending from ${successInstance}`);
+  trendingGrid.innerHTML = data.slice(0, 20).map(item => {
+    const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
+    const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+    return `
+      <div class="music-card" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
+        <img src="${thumb}" alt="${item.title}" class="card-image" style="border-radius: 8px; aspect-ratio: 1/1; object-fit: cover;" loading="lazy">
+        <div class="card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.title}</div>
+        <div class="card-subtitle">${item.uploaderName}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderPlaylists() {
