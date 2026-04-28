@@ -396,11 +396,136 @@ input[type=range]::-webkit-slider-thumb {
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-/* Tab Sections */
-.browse-section, .radio-section {
+/* Action Buttons */
+.action-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+/* Search UI */
+.search-bar {
+  background: rgba(255,255,255,0.1);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-bar input {
+  background: none;
+  border: none;
+  color: white;
+  width: 100%;
+  outline: none;
+  font-size: 16px;
+}
+
+.search-results-container {
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: var(--card-bg);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-result-item:active {
+  background: rgba(255,255,255,0.1);
+}
+
+.search-result-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  margin-right: 12px;
+  object-fit: cover;
+}
+
+.search-result-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.search-result-title {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-artist {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Video & Media Display */
+.media-display-container {
+  width: 100%;
+  aspect-ratio: 1/1;
+  position: relative;
+  margin-bottom: 40px;
+}
+
+.video-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  display: none;
+  background: #000;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+}
+
+.video-container iframe, 
+.video-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-container.active {
+  display: block;
+}
+
+.full-artwork-container.hidden {
   display: none;
 }
 
-.browse-section.active, .radio-section.active {
+/* Tab Sections */
+.tab-section {
+  display: none;
+  will-change: transform, opacity;
+}
+
+.tab-section.active {
   display: block;
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -1,11 +1,14 @@
-import { songs, playlists } from './data.js';
+import { songs as initialSongs, playlists } from './data.js';
 
 // State
+let songs = [...initialSongs];
 let currentSongIndex = 0;
 let isPlaying = false;
-let currentTime = 0;
 let playbackInterval = null;
 let activeBgLayer = 1;
+let ytPlayer = null;
+let currentMode = 'audio'; // 'audio' or 'video'
+let activeEngine = 'youtube'; // 'youtube', 'local-audio', 'local-video'
 
 // DOM Elements
 const miniPlayer = document.getElementById('miniPlayer');
@@ -24,6 +27,13 @@ const durationEl = document.getElementById('duration');
 const mainPlayIcon = document.getElementById('mainPlayIcon');
 const miniPlayIcon = document.getElementById('miniPlayIcon');
 const lyricsContainer = document.getElementById('lyricsContainer');
+const localAudio = document.getElementById('localAudio');
+const localVideo = document.getElementById('localVideo');
+const videoContainer = document.getElementById('videoContainer');
+const artworkContainer = document.getElementById('artworkContainer');
+const fileInput = document.getElementById('fileInput');
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
 
 // Initialize
 function init() {
@@ -31,12 +41,61 @@ function init() {
   renderPlaylists();
   renderBrowse();
   renderRadio();
-  updateSongUI(songs[currentSongIndex], true);
   setupEventListeners();
   setupSwipeGestures();
+  initYouTube();
+  updateSongUI(songs[currentSongIndex], true);
   lucide.createIcons();
 }
 
+// YouTube API
+function initYouTube() {
+  if (window.YT && window.YT.Player) {
+    onYouTubeIframeAPIReady();
+  } else {
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+  }
+}
+
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('youtube-player', {
+    height: '100%',
+    width: '100%',
+    videoId: songs[currentSongIndex].source,
+    playerVars: {
+      'playsinline': 1,
+      'controls': 0,
+      'disablekb': 1,
+      'fs': 0,
+      'modestbranding': 1,
+      'rel': 0
+    },
+    events: {
+      'onReady': onPlayerReady,
+      'onStateChange': onPlayerStateChange
+    }
+  });
+}
+
+function onPlayerReady(event) {
+  console.log("YT Player Ready");
+}
+
+function onPlayerStateChange(event) {
+  if (event.data === YT.PlayerState.ENDED) {
+    nextSong();
+  } else if (event.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    updateControlsUI();
+    startProgressTimer();
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    updateControlsUI();
+    stopProgressTimer();
+  }
+}
+
+// Rendering
 function renderLibrary() {
   const grid = document.getElementById('libraryGrid');
   grid.innerHTML = songs.map((song, index) => `
@@ -85,13 +144,48 @@ function renderRadio() {
   `).join('');
 }
 
+// Playback Logic
 window.playSong = function(index) {
   currentSongIndex = index;
   const song = songs[index];
+  
+  // Stop all engines
+  stopAllEngines();
+
+  activeEngine = song.type === 'youtube' ? 'youtube' : 
+                 (song.type === 'local' && song.fileType.startsWith('video') ? 'local-video' : 'local-audio');
+
   updateSongUI(song);
-  startPlayback();
+  
+  if (activeEngine === 'youtube') {
+    if (ytPlayer && ytPlayer.loadVideoById) {
+      ytPlayer.loadVideoById(song.source);
+      // YT starts playing automatically if loadVideoById is called
+    }
+  } else if (activeEngine === 'local-audio') {
+    localAudio.src = song.source;
+    localAudio.play();
+    isPlaying = true;
+  } else if (activeEngine === 'local-video') {
+    localVideo.src = song.source;
+    localVideo.play();
+    isPlaying = true;
+    setMode('video');
+  }
+
+  updateControlsUI();
   openDrawer();
 };
+
+function stopAllEngines() {
+  if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+  localAudio.pause();
+  localAudio.currentTime = 0;
+  localVideo.pause();
+  localVideo.currentTime = 0;
+  isPlaying = false;
+  stopProgressTimer();
+}
 
 function updateSongUI(song, initial = false) {
   miniTitle.textContent = song.title;
@@ -102,11 +196,47 @@ function updateSongUI(song, initial = false) {
   fullArtist.textContent = song.artist;
   fullArtwork.src = song.artwork;
   
-  updateBackground(song.color, initial);
+  updateBackground(song.color || '#333', initial);
   
-  durationEl.textContent = formatTime(song.duration);
+  durationEl.textContent = formatTime(song.duration || 0);
   renderLyrics(song);
-  resetProgress();
+  
+  // If it's a video type but we are in audio mode, show artwork. 
+  // If we want to force video mode for videos:
+  if (song.type === 'youtube' || (song.type === 'local' && song.fileType.startsWith('video'))) {
+    document.getElementById('toggleVideo').style.display = 'block';
+  } else {
+    document.getElementById('toggleVideo').style.display = 'none';
+    setMode('audio');
+  }
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  if (mode === 'video') {
+    videoContainer.classList.add('active');
+    artworkContainer.classList.add('hidden');
+    // If YouTube, we need to move the iframe to the drawer's video container
+    if (activeEngine === 'youtube') {
+      videoContainer.appendChild(document.getElementById('ytPlayerContainer'));
+      document.getElementById('ytPlayerContainer').style.position = 'relative';
+      document.getElementById('ytPlayerContainer').style.top = '0';
+      document.getElementById('ytPlayerContainer').style.left = '0';
+      document.getElementById('ytPlayerContainer').style.pointerEvents = 'auto';
+    } else if (activeEngine === 'local-video') {
+      videoContainer.appendChild(localVideo);
+      localVideo.style.display = 'block';
+    }
+  } else {
+    videoContainer.classList.remove('active');
+    artworkContainer.classList.remove('hidden');
+    // Move YT player back to hidden
+    document.body.appendChild(document.getElementById('ytPlayerContainer'));
+    document.getElementById('ytPlayerContainer').style.position = 'absolute';
+    document.getElementById('ytPlayerContainer').style.top = '-9999px';
+    document.getElementById('ytPlayerContainer').style.pointerEvents = 'none';
+    localVideo.style.display = 'none';
+  }
 }
 
 function updateBackground(color, initial) {
@@ -125,6 +255,216 @@ function updateBackground(color, initial) {
   }
 }
 
+function startProgressTimer() {
+  if (playbackInterval) clearInterval(playbackInterval);
+  playbackInterval = setInterval(updateProgressUI, 500);
+}
+
+function stopProgressTimer() {
+  clearInterval(playbackInterval);
+}
+
+function updateProgressUI() {
+  let current = 0;
+  let total = 0;
+
+  if (activeEngine === 'youtube' && ytPlayer && ytPlayer.getCurrentTime) {
+    current = ytPlayer.getCurrentTime();
+    total = ytPlayer.getDuration();
+  } else if (activeEngine === 'local-audio') {
+    current = localAudio.currentTime;
+    total = localAudio.duration;
+  } else if (activeEngine === 'local-video') {
+    current = localVideo.currentTime;
+    total = localVideo.duration;
+  }
+
+  if (total > 0) {
+    const percent = (current / total) * 100;
+    progressFill.style.width = `${percent}%`;
+    currentTimeEl.textContent = formatTime(current);
+    durationEl.textContent = formatTime(total);
+    syncLyrics(current);
+  }
+}
+
+function formatTime(seconds) {
+  if (isNaN(seconds)) return "0:00";
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+function togglePlayback() {
+  if (isPlaying) {
+    if (activeEngine === 'youtube') ytPlayer.pauseVideo();
+    else if (activeEngine === 'local-audio') localAudio.pause();
+    else if (activeEngine === 'local-video') localVideo.pause();
+    isPlaying = false;
+  } else {
+    if (activeEngine === 'youtube') ytPlayer.playVideo();
+    else if (activeEngine === 'local-audio') localAudio.play();
+    else if (activeEngine === 'local-video') localVideo.play();
+    isPlaying = true;
+  }
+  updateControlsUI();
+}
+
+function updateControlsUI() {
+  const iconName = isPlaying ? 'pause' : 'play';
+  mainPlayIcon.setAttribute('data-lucide', iconName);
+  miniPlayIcon.setAttribute('data-lucide', iconName);
+  lucide.createIcons();
+  
+  if (isPlaying) fullArtwork.classList.add('playing');
+  else fullArtwork.classList.remove('playing');
+}
+
+function nextSong() {
+  currentSongIndex = (currentSongIndex + 1) % songs.length;
+  playSong(currentSongIndex);
+}
+
+function prevSong() {
+  currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+  playSong(currentSongIndex);
+}
+
+// Search Functionality
+let searchTimeout = null;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  const query = e.target.value;
+  if (query.length < 3) {
+    searchResults.innerHTML = '';
+    return;
+  }
+  searchTimeout = setTimeout(() => performSearch(query), 500);
+});
+
+async function performSearch(query) {
+  // Since we don't have a full YouTube Data API key here, 
+  // we can use a public search suggestion API to show "some" results
+  // Or for this demo, I'll simulate fetching from YouTube
+  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching YouTube...</div>';
+  
+  try {
+    // Note: In a real app, you'd use a backend to fetch actual YT search results.
+    // Here I will use a mocked set of results for the demo that looks real.
+    const mockResults = [
+      { id: 'kJQP7kiw5Fk', title: 'Despacito', artist: 'Luis Fonsi', thumb: 'https://i.ytimg.com/vi/kJQP7kiw5Fk/default.jpg' },
+      { id: 'JGwWNGJdvx8', title: 'Shape of You', artist: 'Ed Sheeran', thumb: 'https://i.ytimg.com/vi/JGwWNGJdvx8/default.jpg' },
+      { id: 'f_E_6B66SAY', title: 'Ghost', artist: 'Justin Bieber', thumb: 'https://i.ytimg.com/vi/f_E_6B66SAY/default.jpg' },
+      { id: '7_uG-sW3f68', title: 'Mendung Tanpo Udan', artist: 'Ndarboy Genk', thumb: 'https://i.ytimg.com/vi/7_uG-sW3f68/default.jpg' }
+    ].filter(item => item.title.toLowerCase().includes(query.toLowerCase()) || item.artist.toLowerCase().includes(query.toLowerCase()));
+
+    if (mockResults.length === 0) {
+      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found</div>';
+      return;
+    }
+
+    searchResults.innerHTML = mockResults.map(item => `
+      <div class="search-result-item" onclick="addAndPlay('${item.id}', '${item.title}', '${item.artist}', '${item.thumb}')">
+        <img src="${item.thumb}" class="search-result-thumb">
+        <div class="search-result-info">
+          <div class="search-result-title">${item.title}</div>
+          <div class="search-result-artist">${item.artist} • YouTube</div>
+        </div>
+        <i data-lucide="play-circle" style="opacity: 0.5;"></i>
+      </div>
+    `).join('');
+    lucide.createIcons();
+  } catch (err) {
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Error searching</div>';
+  }
+}
+
+window.addAndPlay = function(id, title, artist, artwork) {
+  const newSong = {
+    id: Date.now(),
+    title,
+    artist,
+    artwork,
+    type: 'youtube',
+    source: id,
+    color: '#333'
+  };
+  songs.push(newSong);
+  renderLibrary();
+  playSong(songs.length - 1);
+};
+
+// Local File Import
+document.getElementById('importBtn').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  files.forEach(file => {
+    const url = URL.createObjectURL(file);
+    const newSong = {
+      id: Date.now(),
+      title: file.name.replace(/\.[^/.]+$/, ""),
+      artist: "Local File",
+      artwork: "assets/art4.png", // Default for local
+      type: 'local',
+      source: url,
+      fileType: file.type,
+      color: '#444'
+    };
+    songs.push(newSong);
+  });
+  renderLibrary();
+});
+
+// Other UI Events
+function setupEventListeners() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const tab = item.getAttribute('data-tab');
+      document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.getElementById(tab).classList.add('active');
+      item.classList.add('active');
+    });
+  });
+
+  miniPlayer.addEventListener('click', (e) => {
+    if (e.target.closest('.control-btn')) return;
+    openDrawer();
+  });
+
+  document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+  document.getElementById('mainPlayPause').addEventListener('click', togglePlayback);
+  document.getElementById('miniPlayPause').addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePlayback();
+  });
+  document.getElementById('nextBtn').addEventListener('click', nextSong);
+  document.getElementById('prevBtn').addEventListener('click', prevSong);
+  
+  document.getElementById('toggleVideo').addEventListener('click', () => {
+    setMode(currentMode === 'audio' ? 'video' : 'audio');
+  });
+
+  document.getElementById('toggleLyrics').addEventListener('click', () => {
+    lyricsContainer.classList.toggle('active');
+  });
+
+  document.getElementById('volumeSlider').addEventListener('input', (e) => {
+    const vol = e.target.value;
+    if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(vol);
+    localAudio.volume = vol / 100;
+    localVideo.volume = vol / 100;
+  });
+}
+
+function openDrawer() {
+  nowPlayingDrawer.classList.add('open');
+}
+
+function closeDrawer() {
+  nowPlayingDrawer.classList.remove('open');
+}
+
 function renderLyrics(song) {
   if (!song.lyrics) {
     lyricsContainer.innerHTML = '<div class="lyric-line">No lyrics available</div>';
@@ -135,161 +475,28 @@ function renderLyrics(song) {
   `).join('');
 }
 
-function syncLyrics() {
+function syncLyrics(time) {
   const song = songs[currentSongIndex];
   if (!song.lyrics) return;
   
   song.lyrics.forEach((l, i) => {
     const el = document.getElementById(`lyric-${i}`);
-    if (currentTime >= l.time) {
+    if (time >= l.time) {
       document.querySelectorAll('.lyric-line').forEach(line => line.classList.remove('active'));
-      el.classList.add('active');
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el) {
+        el.classList.add('active');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   });
-}
-
-function formatTime(seconds) {
-  const min = Math.floor(seconds / 60);
-  const sec = Math.floor(seconds % 60);
-  return `${min}:${sec.toString().padStart(2, '0')}`;
-}
-
-function resetProgress() {
-  currentTime = 0;
-  updateProgressUI();
-}
-
-function updateProgressUI() {
-  const song = songs[currentSongIndex];
-  const percent = (currentTime / song.duration) * 100;
-  progressFill.style.width = `${percent}%`;
-  currentTimeEl.textContent = formatTime(currentTime);
-  syncLyrics();
-}
-
-function startPlayback() {
-  isPlaying = true;
-  updateControlsUI();
-  fullArtwork.classList.add('playing');
-  
-  if (playbackInterval) clearInterval(playbackInterval);
-  playbackInterval = setInterval(() => {
-    if (currentTime < songs[currentSongIndex].duration) {
-      currentTime++;
-      updateProgressUI();
-    } else {
-      nextSong();
-    }
-  }, 1000);
-}
-
-function pausePlayback() {
-  isPlaying = false;
-  updateControlsUI();
-  fullArtwork.classList.remove('playing');
-  if (playbackInterval) clearInterval(playbackInterval);
-}
-
-function togglePlayback() {
-  if (isPlaying) pausePlayback();
-  else startPlayback();
-}
-
-function updateControlsUI() {
-  const iconName = isPlaying ? 'pause' : 'play';
-  mainPlayIcon.setAttribute('data-lucide', iconName);
-  miniPlayIcon.setAttribute('data-lucide', iconName);
-  lucide.createIcons();
-}
-
-function nextSong() {
-  currentSongIndex = (currentSongIndex + 1) % songs.length;
-  updateSongUI(songs[currentSongIndex]);
-  if (isPlaying) startPlayback();
-}
-
-function prevSong() {
-  currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
-  updateSongUI(songs[currentSongIndex]);
-  if (isPlaying) startPlayback();
-}
-
-function openDrawer() {
-  nowPlayingDrawer.classList.add('open');
-}
-
-function closeDrawer() {
-  nowPlayingDrawer.classList.remove('open');
-  lyricsContainer.classList.remove('active');
 }
 
 function setupSwipeGestures() {
   let touchStartY = 0;
-  let touchEndY = 0;
-
-  nowPlayingDrawer.addEventListener('touchstart', (e) => {
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  nowPlayingDrawer.addEventListener('touchmove', (e) => {
-    touchEndY = e.touches[0].clientY;
-    const diff = touchEndY - touchStartY;
-    if (diff > 0 && nowPlayingDrawer.scrollTop <= 0) {
-      nowPlayingDrawer.style.transform = `translateY(${diff}px)`;
-    }
-  }, { passive: true });
-
-  nowPlayingDrawer.addEventListener('touchend', () => {
-    const diff = touchEndY - touchStartY;
-    if (diff > 150 && nowPlayingDrawer.scrollTop <= 0) {
-      closeDrawer();
-    }
-    nowPlayingDrawer.style.transform = '';
-  });
-}
-
-function setupEventListeners() {
-  // Tab switching
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const tab = item.getAttribute('data-tab');
-      document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-      
-      const target = document.getElementById(tab);
-      if (target) target.classList.add('active');
-      item.classList.add('active');
-      
-      // Haptic feedback simulation
-      if (window.navigator.vibrate) window.navigator.vibrate(10);
-    });
-  });
-
-  // Mini player click to open drawer
-  miniPlayer.addEventListener('click', (e) => {
-    if (e.target.closest('.control-btn')) return;
-    openDrawer();
-  });
-
-  // Drawer controls
-  document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
-  document.getElementById('mainPlayPause').addEventListener('click', togglePlayback);
-  document.getElementById('miniPlayPause').addEventListener('click', (e) => {
-    e.stopPropagation();
-    togglePlayback();
-  });
-  document.getElementById('nextBtn').addEventListener('click', nextSong);
-  document.getElementById('prevBtn').addEventListener('click', prevSong);
-
-  // Volume Slider
-  document.getElementById('volumeSlider').addEventListener('input', (e) => {
-    console.log('Volume:', e.target.value);
-  });
-
-  // Lyrics Toggle
-  document.getElementById('toggleLyrics').addEventListener('click', () => {
-    lyricsContainer.classList.toggle('active');
+  nowPlayingDrawer.addEventListener('touchstart', (e) => touchStartY = e.touches[0].clientY, { passive: true });
+  nowPlayingDrawer.addEventListener('touchend', (e) => {
+    const diff = e.changedTouches[0].clientY - touchStartY;
+    if (diff > 100) closeDrawer();
   });
 }
 

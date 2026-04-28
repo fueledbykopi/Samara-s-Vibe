@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Music Player - Apple Style</title>
+    <title>MusyikPlayer - Apple Style</title>
     <link rel="stylesheet" href="style.css">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
     <div id="app">
@@ -14,10 +16,25 @@
         <div class="dynamic-bg active" id="bgLayer1"></div>
         <div class="dynamic-bg" id="bgLayer2"></div>
 
+        <!-- Hidden Media Elements -->
+        <div id="ytPlayerContainer" style="position: absolute; top: -9999px; left: -9999px; pointer-events: none;">
+            <div id="youtube-player"></div>
+        </div>
+        <audio id="localAudio" style="display: none;"></audio>
+        <video id="localVideo" style="display: none;"></video>
+
         <!-- Main Content -->
         <main class="content-area">
             <section id="library" class="tab-section active">
-                <h1 class="section-title">Library</h1>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h1 class="section-title" style="margin-bottom: 0;">Library</h1>
+                    <button id="importBtn" class="action-btn">
+                        <i data-lucide="plus"></i>
+                        <span>Import</span>
+                    </button>
+                    <input type="file" id="fileInput" multiple accept="audio/*,video/*" style="display: none;">
+                </div>
+                
                 <div class="grid-container" id="libraryGrid">
                     <!-- Cards will be injected here -->
                 </div>
@@ -44,9 +61,12 @@
 
             <section id="search" class="tab-section">
                 <h1 class="section-title">Search</h1>
-                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; margin-bottom: 20px; display: flex; align-items: center;">
-                    <i data-lucide="search" style="margin-right: 10px; opacity: 0.5;"></i>
-                    <input type="text" placeholder="Artists, Songs, Lyrics, and More" style="background: none; border: none; color: white; width: 100%; outline: none; font-size: 16px;">
+                <div class="search-bar">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="searchInput" placeholder="Artists, Songs, YouTube Content...">
+                </div>
+                <div id="searchResults" class="search-results-container">
+                    <!-- Search results from YouTube will appear here -->
                 </div>
                 <div class="grid-container" id="searchCategories">
                     <!-- Search categories -->
@@ -98,18 +118,29 @@
             <!-- Lyrics Overlay -->
             <div class="lyrics-container" id="lyricsContainer"></div>
 
-            <div class="full-artwork-container">
-                <img src="assets/art1.png" alt="Full Artwork" class="full-artwork" id="fullArtwork">
+            <!-- Media Display Area -->
+            <div class="media-display-container">
+                <div id="videoContainer" class="video-container"></div>
+                <div id="artworkContainer" class="full-artwork-container">
+                    <img src="assets/art1.png" alt="Full Artwork" class="full-artwork" id="fullArtwork">
+                </div>
             </div>
 
             <div class="song-details">
-                <h1 class="song-title" id="fullTitle">Song Title</h1>
-                <p class="song-artist" id="fullArtist">Artist Name</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h1 class="song-title" id="fullTitle">Song Title</h1>
+                        <p class="song-artist" id="fullArtist">Artist Name</p>
+                    </div>
+                    <button class="control-btn" id="toggleVideo" style="opacity: 0.5;">
+                        <i data-lucide="tv"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="progress-container">
                 <div class="progress-bar" id="progressBar">
-                    <div class="progress-fill" id="progressFill" style="width: 30%;"></div>
+                    <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
                 </div>
                 <div class="time-info">
                     <span id="currentTime">0:00</span>

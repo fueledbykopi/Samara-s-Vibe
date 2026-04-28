@@ -7,6 +7,8 @@ export const songs = [
     artwork: "assets/art1.png",
     duration: 280,
     color: "#4a148c",
+    type: "youtube",
+    source: "7_uG-sW3f68", // Example YT ID
     lyrics: [
       { time: 0, text: "Mendung tanpo udan" },
       { time: 5, text: "Ketemu lan kelangan" },
@@ -22,6 +24,8 @@ export const songs = [
     artwork: "assets/art2.png",
     duration: 242,
     color: "#1b5e20",
+    type: "youtube",
+    source: "f5S_scT8W_8",
     lyrics: [
       { time: 0, text: "Perjalanan membawamu" },
       { time: 5, text: "Bertemu denganku" },
@@ -31,52 +35,14 @@ export const songs = [
   },
   {
     id: 3,
-    title: "Sial",
-    artist: "Mahalini",
-    album: "Fabula",
-    artwork: "assets/art3.png",
-    duration: 243,
-    color: "#b71c1c",
-    lyrics: [
-      { time: 0, text: "Sampai saat ini" },
-      { time: 5, text: "Tak terpikir olehku" },
-      { time: 10, text: "Akan begini akhirnya" }
-    ]
-  },
-  {
-    id: 4,
-    title: "Tak Ingin Usai",
-    artist: "Keisya Levronka",
-    album: "Tak Ingin Usai",
-    artwork: "assets/art4.png",
-    duration: 278,
-    color: "#01579b",
-    lyrics: [
-      { time: 0, text: "Berdiri ku di sini" },
-      { time: 5, text: "Hanya untukmu" }
-    ]
-  },
-  {
-    id: 5,
-    title: "Komang",
-    artist: "Raim Laode",
-    album: "Komang",
-    artwork: "assets/art5.png",
-    duration: 222,
-    color: "#e65100",
-    lyrics: [
-      { time: 0, text: "Sebab kau terlalu indah" },
-      { time: 5, text: "Dari sekedar kata" }
-    ]
-  },
-  {
-    id: 6,
     title: "Ghost",
     artist: "Justin Bieber",
     album: "Justice",
     artwork: "assets/art6.png",
     duration: 153,
     color: "#263238",
+    type: "youtube",
+    source: "f_E_6B66SAY",
     lyrics: [
       { time: 0, text: "Youngblood thinks there's always tomorrow" },
       { time: 5, text: "I miss your touch some nights when I'm hollow" }
