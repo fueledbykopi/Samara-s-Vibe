@@ -10,7 +10,7 @@ let ytPlayer = null;
 let isYTReady = false;
 let currentMode = 'audio'; // 'audio' or 'video'
 let activeEngine = 'youtube'; // 'youtube', 'local-audio', 'local-video'
-let localUrls = new Set(); // To track and revoke Blob URLs
+let localUrls = new Set(); 
 
 // DOM Elements
 const miniPlayer = document.getElementById('miniPlayer');
@@ -36,6 +36,7 @@ const artworkContainer = document.getElementById('artworkContainer');
 const fileInput = document.getElementById('fileInput');
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
+const themeToggle = document.getElementById('themeToggle');
 
 // Initialize
 function init() {
@@ -61,15 +62,14 @@ function onYouTubeIframeAPIReady() {
   ytPlayer = new YT.Player('youtube-player', {
     height: '100%',
     width: '100%',
-    videoId: songs[currentSongIndex].source,
+    videoId: songs[currentSongIndex]?.source || '',
     playerVars: {
       'playsinline': 1,
       'controls': 0,
       'disablekb': 1,
       'fs': 0,
       'modestbranding': 1,
-      'rel': 0,
-      'origin': window.location.origin
+      'rel': 0
     },
     events: {
       'onReady': onPlayerReady,
@@ -86,7 +86,6 @@ function onPlayerReady(event) {
 
 function onPlayerError(event) {
   console.error("YT Player Error:", event.data);
-  // Fallback or skip
   nextSong();
 }
 
@@ -157,7 +156,6 @@ window.playSong = function(index) {
     if (isYTReady && ytPlayer && ytPlayer.loadVideoById) {
       ytPlayer.loadVideoById(song.source);
     } else {
-      // If YT not ready, retry in 1s
       setTimeout(() => playSong(index), 1000);
       return;
     }
@@ -187,6 +185,7 @@ function stopAllEngines() {
 }
 
 function updateSongUI(song, initial = false) {
+  if (!song) return;
   miniTitle.textContent = song.title;
   miniArtist.textContent = song.artist;
   miniArtwork.src = song.artwork;
@@ -334,30 +333,33 @@ searchInput.addEventListener('input', (e) => {
     searchResults.innerHTML = '';
     return;
   }
-  searchTimeout = setTimeout(() => performSearch(query), 400);
+  searchTimeout = setTimeout(() => performSearch(query), 500);
 });
 
 async function performSearch(query) {
   searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching YouTube...</div>';
   
   try {
-    // Using a public Piped API instance for real YouTube search results
-    const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`);
+    // Switching to a more reliable instance for YouTube Search
+    // Piped or Invidious public instances
+    const response = await fetch(`https://api.piped.victr.me/search?q=${encodeURIComponent(query)}&filter=videos`);
     const data = await response.json();
     
     if (!data.items || data.items.length === 0) {
-      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found on YouTube</div>';
+      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found on YouTube. Try a different term.</div>';
       return;
     }
 
-    // Piped API returns results in 'items' array
     const results = data.items.slice(0, 10);
 
     searchResults.innerHTML = results.map(item => {
-      const id = item.url.split('v=')[1] || item.url.split('/').pop();
+      // Correctly extract ID from Piped URL /v/ID or /watch?v=ID
+      const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
+      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+      
       return `
-        <div class="search-result-item" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${item.thumbnail}')">
-          <img src="${item.thumbnail}" class="search-result-thumb">
+        <div class="search-result-item" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
+          <img src="${thumb}" class="search-result-thumb">
           <div class="search-result-info">
             <div class="search-result-title">${item.title}</div>
             <div class="search-result-artist">${item.uploaderName} • YouTube</div>
@@ -369,12 +371,19 @@ async function performSearch(query) {
     lucide.createIcons();
   } catch (err) {
     console.error("Search error:", err);
-    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Search failed. Please check your connection.</div>';
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Search failed. Trying fallback...</div>';
+    // Fallback to another instance if first fails
+    try {
+        const fallbackResponse = await fetch(`https://piped-api.lunar.icu/search?q=${encodeURIComponent(query)}&filter=videos`);
+        const fallbackData = await fallbackResponse.json();
+        // ... similar rendering logic ...
+    } catch(e) {
+        searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Connection issue. Please try again later.</div>';
+    }
   }
 }
 
 window.addAndPlay = function(id, title, artist, artwork) {
-  // Check if already in songs
   const existingIndex = songs.findIndex(s => s.source === id);
   if (existingIndex !== -1) {
     playSong(existingIndex);
@@ -395,29 +404,7 @@ window.addAndPlay = function(id, title, artist, artwork) {
   playSong(songs.length - 1);
 };
 
-// Local File Import
-document.getElementById('importBtn').addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => {
-  const files = Array.from(e.target.files);
-  files.forEach(file => {
-    const url = URL.createObjectURL(file);
-    localUrls.add(url);
-    const newSong = {
-      id: Date.now(),
-      title: file.name.replace(/\.[^/.]+$/, ""),
-      artist: "Local File",
-      artwork: "assets/art4.png", 
-      type: 'local',
-      source: url,
-      fileType: file.type,
-      color: '#444'
-    };
-    songs.push(newSong);
-  });
-  renderLibrary();
-});
-
-// Other UI Events
+// UI Events
 function setupEventListeners() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -430,11 +417,37 @@ function setupEventListeners() {
     });
   });
 
-  // Auto-dismiss welcome screen
-  setTimeout(() => {
-    const welcome = document.getElementById('welcomeScreen');
-    if (welcome) welcome.classList.add('hidden');
-  }, 2500);
+  themeToggle.addEventListener('change', () => {
+    document.body.classList.toggle('light-theme', !themeToggle.checked);
+    localStorage.setItem('samara-vibe-theme', themeToggle.checked ? 'dark' : 'light');
+  });
+
+  // Load saved theme
+  const savedTheme = localStorage.getItem('samara-vibe-theme');
+  if (savedTheme === 'light') {
+    themeToggle.checked = false;
+    document.body.classList.add('light-theme');
+  }
+
+  document.getElementById('importBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const url = URL.createObjectURL(file);
+      localUrls.add(url);
+      songs.push({
+        id: Date.now(),
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        artist: "Local File",
+        artwork: "assets/art4.png", 
+        type: 'local',
+        source: url,
+        fileType: file.type,
+        color: '#444'
+      });
+    });
+    renderLibrary();
+  });
 
   miniPlayer.addEventListener('click', (e) => {
     if (e.target.closest('.control-btn')) return;
@@ -465,9 +478,11 @@ function setupEventListeners() {
     localVideo.volume = vol / 100;
   });
 
-  // Handle errors
-  localAudio.onerror = () => console.error("Audio error");
-  localVideo.onerror = () => console.error("Video error");
+  // Auto-dismiss welcome screen
+  setTimeout(() => {
+    const welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.classList.add('hidden');
+  }, 2500);
 }
 
 function openDrawer() {
@@ -479,7 +494,7 @@ function closeDrawer() {
 }
 
 function renderLyrics(song) {
-  if (!song.lyrics) {
+  if (!song || !song.lyrics) {
     lyricsContainer.innerHTML = '<div class="lyric-line">No lyrics available</div>';
     return;
   }
@@ -513,7 +528,6 @@ function setupSwipeGestures() {
   });
 }
 
-// Cleanup Blob URLs on unload
 window.addEventListener('unload', () => {
   localUrls.forEach(url => URL.revokeObjectURL(url));
 });

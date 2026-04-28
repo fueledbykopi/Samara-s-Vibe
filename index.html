@@ -65,13 +65,32 @@
                 <h1 class="section-title">Search</h1>
                 <div class="search-bar">
                     <i data-lucide="search"></i>
-                    <input type="text" id="searchInput" placeholder="Artists, Songs, YouTube Content...">
+                    <input type="text" id="searchInput" placeholder="Search YouTube Music & Video...">
                 </div>
                 <div id="searchResults" class="search-results-container">
                     <!-- Search results from YouTube will appear here -->
                 </div>
-                <div class="grid-container" id="searchCategories">
-                    <!-- Search categories -->
+            </section>
+
+            <section id="settings" class="tab-section">
+                <h1 class="section-title">Settings</h1>
+                <div class="settings-list">
+                    <div class="settings-item">
+                        <div class="settings-info">
+                            <div class="settings-label">Dark Mode</div>
+                            <div class="settings-desc">Switch between themes</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="themeToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="settings-group-title">About</div>
+                    <div class="settings-card">
+                        <p style="margin-bottom: 10px; color: var(--text-secondary);">Samara's Vibe v1.2.0</p>
+                        <p style="line-height: 1.5;">penyanyi favorit bubu : <br><strong>the weeknd, central cee, sza, dll</strong></p>
+                    </div>
                 </div>
             </section>
         </main>
@@ -102,6 +121,10 @@
             <div class="nav-item" data-tab="library">
                 <i data-lucide="library"></i>
                 <span>Library</span>
+            </div>
+            <div class="nav-item" data-tab="settings">
+                <i data-lucide="settings"></i>
+                <span>Settings</span>
             </div>
         </nav>
 
