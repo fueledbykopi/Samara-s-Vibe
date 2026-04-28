@@ -109,13 +109,25 @@ function onPlayerStateChange(event) {
 // Rendering
 function renderLibrary() {
   const grid = document.getElementById('libraryGrid');
-  grid.innerHTML = songs.map((song, index) => `
-    <div class="music-card" onclick="playSong(${index})">
-      <img src="${song.artwork}" alt="${song.title}" class="card-image" loading="lazy">
-      <div class="card-title">${song.title}</div>
-      <div class="card-subtitle">${song.artist}</div>
-    </div>
-  `).join('');
+  const empty = document.getElementById('emptyLibrary');
+  
+  if (songs.length === 0) {
+    if (grid) grid.style.display = 'none';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  
+  if (empty) empty.style.display = 'none';
+  if (grid) {
+    grid.style.display = 'grid';
+    grid.innerHTML = songs.map((song, index) => `
+      <div class="music-card" onclick="playSong(${index})">
+        <img src="${song.artwork}" alt="${song.title}" class="card-image" loading="lazy">
+        <div class="card-title">${song.title}</div>
+        <div class="card-subtitle">${song.artist}</div>
+      </div>
+    `).join('');
+  }
 }
 
 function renderPlaylists() {
@@ -354,35 +366,38 @@ searchInput.addEventListener('input', (e) => {
 });
 
 async function performSearch(query) {
-  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching...</div>';
+  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching YouTube...</div>';
   
   try {
-    const mockResults = [
-      { id: 'kJQP7kiw5Fk', title: 'Despacito', artist: 'Luis Fonsi', thumb: 'https://i.ytimg.com/vi/kJQP7kiw5Fk/default.jpg' },
-      { id: 'JGwWNGJdvx8', title: 'Shape of You', artist: 'Ed Sheeran', thumb: 'https://i.ytimg.com/vi/JGwWNGJdvx8/default.jpg' },
-      { id: 'f_E_6B66SAY', title: 'Ghost', artist: 'Justin Bieber', thumb: 'https://i.ytimg.com/vi/f_E_6B66SAY/default.jpg' },
-      { id: '7_uG-sW3f68', title: 'Mendung Tanpo Udan', artist: 'Ndarboy Genk', thumb: 'https://i.ytimg.com/vi/7_uG-sW3f68/default.jpg' },
-      { id: 'dQw4w9WgXcQ', title: 'Never Gonna Give You Up', artist: 'Rick Astley', thumb: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg' }
-    ].filter(item => item.title.toLowerCase().includes(query.toLowerCase()) || item.artist.toLowerCase().includes(query.toLowerCase()));
-
-    if (mockResults.length === 0) {
-      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found</div>';
+    // Using a public Piped API instance for real YouTube search results
+    const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`);
+    const data = await response.json();
+    
+    if (!data.items || data.items.length === 0) {
+      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found on YouTube</div>';
       return;
     }
 
-    searchResults.innerHTML = mockResults.map(item => `
-      <div class="search-result-item" onclick="addAndPlay('${item.id}', '${item.title}', '${item.artist}', '${item.thumb}')">
-        <img src="${item.thumb}" class="search-result-thumb">
-        <div class="search-result-info">
-          <div class="search-result-title">${item.title}</div>
-          <div class="search-result-artist">${item.artist} • YouTube</div>
+    // Piped API returns results in 'items' array
+    const results = data.items.slice(0, 10);
+
+    searchResults.innerHTML = results.map(item => {
+      const id = item.url.split('v=')[1] || item.url.split('/').pop();
+      return `
+        <div class="search-result-item" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${item.thumbnail}')">
+          <img src="${item.thumbnail}" class="search-result-thumb">
+          <div class="search-result-info">
+            <div class="search-result-title">${item.title}</div>
+            <div class="search-result-artist">${item.uploaderName} • YouTube</div>
+          </div>
+          <i data-lucide="play-circle" style="opacity: 0.5;"></i>
         </div>
-        <i data-lucide="play-circle" style="opacity: 0.5;"></i>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     lucide.createIcons();
   } catch (err) {
-    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Error searching</div>';
+    console.error("Search error:", err);
+    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Search failed. Please check your connection.</div>';
   }
 }
 
