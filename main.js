@@ -443,6 +443,11 @@ function setupEventListeners() {
     });
   });
 
+  document.getElementById('startBtn').addEventListener('click', () => {
+    document.getElementById('welcomeScreen').classList.add('hidden');
+    // Start playback of first song if desired, or just let user browse
+  });
+
   miniPlayer.addEventListener('click', (e) => {
     if (e.target.closest('.control-btn')) return;
     openDrawer();
