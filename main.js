@@ -184,11 +184,13 @@ window.playSong = function(index) {
     localAudio.src = song.source;
     localAudio.play().catch(console.error);
     isPlaying = true;
+    startProgressTimer();
   } else if (activeEngine === 'local-video') {
     localVideo.src = song.source;
     localVideo.play().catch(console.error);
     isPlaying = true;
     setMode('video');
+    startProgressTimer();
   }
 
   updateControlsUI();
@@ -322,6 +324,7 @@ function togglePlayback() {
     else if (activeEngine === 'local-audio') localAudio.play().catch(console.error);
     else if (activeEngine === 'local-video') localVideo.play().catch(console.error);
     isPlaying = true;
+    startProgressTimer();
   }
   updateControlsUI();
 }
@@ -477,6 +480,26 @@ function setupEventListeners() {
     if (ytPlayer && isYTReady && ytPlayer.setVolume) ytPlayer.setVolume(vol);
     localAudio.volume = vol / 100;
     localVideo.volume = vol / 100;
+  });
+
+  // Seeking logic
+  const progressBar = document.getElementById('progressBar');
+  progressBar.addEventListener('click', (e) => {
+    const rect = progressBar.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    
+    let total = 0;
+    if (activeEngine === 'youtube' && isYTReady && ytPlayer && ytPlayer.getDuration) {
+      total = ytPlayer.getDuration();
+      ytPlayer.seekTo(total * pos, true);
+    } else if (activeEngine === 'local-audio') {
+      total = localAudio.duration;
+      localAudio.currentTime = total * pos;
+    } else if (activeEngine === 'local-video') {
+      total = localVideo.duration;
+      localVideo.currentTime = total * pos;
+    }
+    updateProgressUI();
   });
 
   setTimeout(() => {
