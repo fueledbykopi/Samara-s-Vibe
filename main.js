@@ -41,8 +41,6 @@ const searchResults = document.getElementById('searchResults');
 function init() {
   renderLibrary();
   renderPlaylists();
-  renderBrowse();
-  renderRadio();
   setupEventListeners();
   setupSwipeGestures();
   initYouTube();
@@ -132,37 +130,11 @@ function renderLibrary() {
 
 function renderPlaylists() {
   const grid = document.getElementById('playlistGrid');
+  if (!grid) return;
   grid.innerHTML = playlists.map(p => `
     <div class="music-card">
       <img src="${p.artwork}" alt="${p.name}" class="card-image" style="border-radius: 12px;" loading="lazy">
       <div class="card-title">${p.name}</div>
-    </div>
-  `).join('');
-}
-
-function renderBrowse() {
-  const grid = document.getElementById('browseGrid');
-  grid.innerHTML = songs.slice().reverse().map((song, index) => `
-    <div class="music-card" onclick="playSong(${songs.length - 1 - index})">
-      <img src="${song.artwork}" alt="${song.title}" class="card-image" loading="lazy">
-      <div class="card-title">${song.title}</div>
-      <div class="card-subtitle">${song.artist}</div>
-    </div>
-  `).join('');
-}
-
-function renderRadio() {
-  const grid = document.getElementById('radioGrid');
-  const stations = [
-    { name: "Apple Music 1", art: "assets/art6.png" },
-    { name: "Hits Radio", art: "assets/art3.png" },
-    { name: "Chill Station", art: "assets/art5.png" },
-    { name: "Indie Wave", art: "assets/art2.png" }
-  ];
-  grid.innerHTML = stations.map(s => `
-    <div class="music-card">
-      <img src="${s.art}" alt="${s.name}" class="card-image" style="border-radius: 50%;" loading="lazy">
-      <div class="card-title" style="text-align: center;">${s.name}</div>
     </div>
   `).join('');
 }
