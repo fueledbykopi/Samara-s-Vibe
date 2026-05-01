@@ -1,6 +1,8 @@
 {
   "appId": "com.samara.vibe",
   "appName": "Samara's Vibe",
+
+
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {

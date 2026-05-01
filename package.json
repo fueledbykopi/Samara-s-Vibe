@@ -2,6 +2,8 @@
   "name": "samaras-vibe",
   "version": "1.2.0",
   "description": "Samara's Vibe - Premium Music & Video Streaming Player",
+
+
   "main": "index.html",
   "scripts": {
     "build": "mkdir -p www && cp -r assets index.html main.js style.css data.js www/",

@@ -6,93 +6,22 @@ let currentSongIndex = 0;
 let isPlaying = false;
 let playbackInterval = null;
 let activeBgLayer = 1;
-let ytPlayer = null;
-let isYTReady = false;
 let currentMode = 'audio';
-let activeEngine = 'youtube';
+let activeEngine = 'local-audio';
 let localUrls = new Set(); 
 
-// Spotify State
-const SPOTIFY_CONFIG = {
-  clientId: localStorage.getItem('spotify_client_id') || '',
-  accessToken: localStorage.getItem('spotify_access_token') || '',
-  tokenExpiry: localStorage.getItem('spotify_token_expiry') || 0,
-  redirectUri: window.location.origin + window.location.pathname
+// Browser State
+const BROWSER_CONFIG = {
+  defaultSearchEngine: 'https://duckduckgo.com/?q=',
+  defaultHome: 'https://www.bing.com'
 };
 
-const SpotifyService = {
-  async init() {
-    this.handleAuthCallback();
-    this.updateStatusUI();
-    
-    const clientIdInput = document.getElementById('spotifyClientId');
-    if (clientIdInput) {
-      clientIdInput.value = SPOTIFY_CONFIG.clientId;
-      clientIdInput.addEventListener('input', (e) => {
-        SPOTIFY_CONFIG.clientId = e.target.value;
-        localStorage.setItem('spotify_client_id', e.target.value);
-      });
-    }
+let tabs = [];
+let activeTabId = null;
+let downloads = [];
 
-    document.getElementById('spotifyAuthBtn')?.addEventListener('click', () => this.authorize());
-  },
 
-  authorize() {
-    if (!SPOTIFY_CONFIG.clientId) {
-      alert('Please enter a Spotify Client ID first.');
-      return;
-    }
-    const scope = 'playlist-read-private user-library-read';
-    const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_CONFIG.redirectUri)}&scope=${encodeURIComponent(scope)}`;
-    window.location.href = authUrl;
-  },
 
-  handleAuthCallback() {
-    const hash = window.location.hash.substring(1);
-    if (hash) {
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
-      const expiresIn = params.get('expires_in');
-      
-      if (accessToken) {
-        SPOTIFY_CONFIG.accessToken = accessToken;
-        SPOTIFY_CONFIG.tokenExpiry = Date.now() + (parseInt(expiresIn) * 1000);
-        localStorage.setItem('spotify_access_token', accessToken);
-        localStorage.setItem('spotify_token_expiry', SPOTIFY_CONFIG.tokenExpiry);
-        window.location.hash = ''; // Clean up URL
-      }
-    }
-  },
-
-  isAuthorized() {
-    return SPOTIFY_CONFIG.accessToken && Date.now() < SPOTIFY_CONFIG.tokenExpiry;
-  },
-
-  updateStatusUI() {
-    const statusEl = document.getElementById('spotifyStatus');
-    if (statusEl) {
-      if (this.isAuthorized()) {
-        statusEl.textContent = 'Status: Connected ✅';
-        statusEl.style.color = '#1DB954';
-      } else {
-        statusEl.textContent = 'Status: Not Connected ❌';
-        statusEl.style.color = 'inherit';
-      }
-    }
-  },
-
-  async fetch(endpoint) {
-    if (!this.isAuthorized()) throw new Error('Not authorized');
-    const response = await fetch(`https://api.spotify.com/v1/${endpoint}`, {
-      headers: { 'Authorization': `Bearer ${SPOTIFY_CONFIG.accessToken}` }
-    });
-    if (response.status === 401) {
-      this.authorize(); // Re-auth if token expired
-      return null;
-    }
-    return response.json();
-  }
-};
 
 // DOM Elements
 const miniPlayer = document.getElementById('miniPlayer');
@@ -116,193 +45,304 @@ const localVideo = document.getElementById('localVideo');
 const videoContainer = document.getElementById('videoContainer');
 const artworkContainer = document.getElementById('artworkContainer');
 const fileInput = document.getElementById('fileInput');
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
-const trendingGrid = document.getElementById('trendingGrid');
+const browserInput = document.getElementById('browserInput');
+const tabsContainer = document.getElementById('tabsContainer');
+const tabCountEl = document.getElementById('tabCount');
+const tabSwitcher = document.getElementById('tabSwitcher');
+const tabGrid = document.getElementById('tabGrid');
+const downloadsOverlay = document.getElementById('downloadsOverlay');
+const downloadsList = document.getElementById('downloadsList');
+const localSearchInput = document.getElementById('localSearchInput');
+
 const themeToggle = document.getElementById('themeToggle');
 
-// Initialize
+
+
 function init() {
   renderLibrary();
   renderPlaylists();
   setupEventListeners();
   setupSwipeGestures();
-  initYouTube(); // Still used as engine but rebranded
+  setupBrowser();
   updateSongUI(songs[currentSongIndex], true);
-  SpotifyService.init();
-  fetchSpotifyTopHits();
   lucide.createIcons();
 }
 
-// YouTube API (Engine)
-function initYouTube() {
-  if (window.YT && window.YT.Player) {
-    onYouTubeIframeAPIReady();
-  } else {
-    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
-  }
-}
 
-function onYouTubeIframeAPIReady() {
-  ytPlayer = new YT.Player('youtube-player', {
-    height: '100%',
-    width: '100%',
-    videoId: songs[currentSongIndex]?.source || '',
-    playerVars: {
-      'playsinline': 1,
-      'controls': 0,
-      'disablekb': 1,
-      'fs': 0,
-      'modestbranding': 1,
-      'rel': 0
-    },
-    events: {
-      'onReady': onPlayerReady,
-      'onStateChange': onPlayerStateChange,
-      'onError': onPlayerError
+function setupBrowser() {
+  if (!browserInput) return;
+
+  // Initial tab
+  createNewTab(BROWSER_CONFIG.defaultHome);
+
+  browserInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      let url = browserInput.value.trim();
+      if (!url) return;
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        if (url.includes('.') && !url.includes(' ')) {
+          url = 'https://' + url;
+        } else {
+          url = BROWSER_CONFIG.defaultSearchEngine + encodeURIComponent(url);
+        }
+      }
+      const activeTab = tabs.find(t => t.id === activeTabId);
+      if (activeTab) {
+        activeTab.url = url;
+        activeTab.iframe.src = url;
+      }
     }
   });
+
+  document.getElementById('browserRefresh').addEventListener('click', () => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab) activeTab.iframe.src = activeTab.iframe.src;
+  });
+
+  document.getElementById('browserBack').addEventListener('click', () => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab) activeTab.iframe.contentWindow.history.back();
+  });
+
+  document.getElementById('browserForward').addEventListener('click', () => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab) activeTab.iframe.contentWindow.history.forward();
+  });
+
+  document.getElementById('newTabBtn').addEventListener('click', () => createNewTab());
+  document.getElementById('tabSwitcherBtn').addEventListener('click', toggleTabSwitcher);
+  document.getElementById('doneTabs').addEventListener('click', toggleTabSwitcher);
+  document.getElementById('newTabSwitcherBtn').addEventListener('click', () => {
+    createNewTab();
+    toggleTabSwitcher();
+  });
+  document.getElementById('closeAllTabs').addEventListener('click', closeAllTabs);
+
+
+  // Download Manager Events
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    const url = prompt("Enter URL to download:", activeTab ? activeTab.url : "");
+    if (url) startDownload(url);
+  });
+  document.getElementById('closeDownloads').addEventListener('click', toggleDownloads);
+  document.getElementById('clearCompletedBtn').addEventListener('click', clearCompletedDownloads);
 }
 
-function onPlayerReady(event) {
-  isYTReady = true;
-}
 
-function onPlayerError(event) {
-  nextSong();
-}
-
-function onPlayerStateChange(event) {
-  if (event.data === YT.PlayerState.ENDED) {
-    nextSong();
-  } else if (event.data === YT.PlayerState.PLAYING) {
-    isPlaying = true;
-    updateControlsUI();
-    startProgressTimer();
-  } else if (event.data === YT.PlayerState.PAUSED) {
-    isPlaying = false;
-    updateControlsUI();
-    stopProgressTimer();
+function toggleDownloads() {
+  downloadsOverlay.classList.toggle('active');
+  if (downloadsOverlay.classList.contains('active')) {
+    updateDownloadsUI();
   }
 }
 
-// Rendering
-function renderLibrary() {
-  const grid = document.getElementById('libraryGrid');
-  if (grid) {
-    grid.innerHTML = songs.map((song, index) => `
-      <div class="music-card" onclick="playSong(${index})">
-        <img src="${song.artwork}" alt="${song.title}" class="card-image" loading="lazy">
-        <div class="card-title">${song.title}</div>
-        <div class="card-subtitle">${song.artist}</div>
-      </div>
-    `).join('');
-  }
-}
-
-async function fetchSpotifyTopHits() {
-  if (!trendingGrid) return;
+async function startDownload(url) {
+  const id = Date.now();
+  const fileName = url.split('/').pop() || 'downloaded-file';
   
-  trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Fetching latest Spotify hits...</div>';
-
-  // Try Spotify Official API first
-  if (SpotifyService.isAuthorized()) {
-    try {
-      // Global Top 50 playlist ID
-      const data = await SpotifyService.fetch('playlists/37i9dQZEVXbMDoHDm92rtO/tracks?limit=20');
-      if (data && data.items) {
-        trendingGrid.innerHTML = data.items.map(item => {
-          const track = item.track;
-          const thumb = track.album.images[0]?.url || 'assets/art1.png';
-          const title = track.name.replace(/'/g, "\\'");
-          const artist = track.artists.map(a => a.name).join(', ').replace(/'/g, "\\'");
-          return `
-            <div class="music-card" onclick="playSpotifyTrack('${title}', '${artist}', '${thumb}')">
-              <img src="${thumb}" alt="${title}" class="card-image" style="border-radius: 8px; aspect-ratio: 1/1; object-fit: cover;" loading="lazy">
-              <div class="card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${track.name}</div>
-              <div class="card-subtitle">${track.artists[0].name}</div>
-            </div>
-          `;
-        }).join('');
-        return;
-      }
-    } catch (e) {
-      console.warn('Spotify API failed, falling back to Piped:', e);
-    }
-  }
-
-  // Fallback to Piped API (Original logic)
-  const instances = [
-    'https://api.piped.victr.me',
-    'https://piped-api.lunar.icu',
-    'https://pipedapi.kavin.rocks'
-  ];
+  const download = {
+    id,
+    name: fileName,
+    url,
+    progress: 0,
+    status: 'downloading',
+    totalSize: 0,
+    downloadedSize: 0,
+    blob: null,
+    controller: new AbortController()
+  };
   
-  let data = null;
-  for (const instance of instances) {
-    try {
-      const response = await fetch(`${instance}/trending?region=ID`, { signal: AbortSignal.timeout(5000) });
-      if (response.ok) {
-        data = await response.json();
-        break;
-      }
-    } catch (e) { continue; }
-  }
+  downloads.push(download);
+  toggleDownloads();
+  updateDownloadsUI();
 
-  if (!data || data.length === 0) {
-    trendingGrid.innerHTML = '<div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Authorize Spotify in Settings for real Top 50!</div>';
-    return;
-  }
-
-  trendingGrid.innerHTML = data.slice(0, 20).map(item => {
-    const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
-    const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-    return `
-      <div class="music-card" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
-        <img src="${thumb}" alt="${item.title}" class="card-image" style="border-radius: 8px; aspect-ratio: 1/1; object-fit: cover;" loading="lazy">
-        <div class="card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.title}</div>
-        <div class="card-subtitle">${item.uploaderName}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-// New helper to play a track from Spotify metadata
-window.playSpotifyTrack = async function(title, artist, artwork) {
-  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Matching with YouTube audio...</div>';
-  const query = `${title} ${artist}`;
-  
   try {
-    // Search YouTube via Piped to get the best match
-    const instance = 'https://api.piped.victr.me';
-    const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=music_videos`);
-    const data = await response.json();
+    const response = await fetch(url, { signal: download.controller.signal });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     
-    if (data && data.items && data.items.length > 0) {
-      const bestMatch = data.items[0];
-      const id = bestMatch.url.includes('v=') ? bestMatch.url.split('v=')[1] : bestMatch.url.split('/').pop();
-      addAndPlay(id, title, artist, artwork);
-    } else {
-      alert("Could not find a matching video on YouTube.");
+    const contentLength = response.headers.get('content-length');
+    download.totalSize = parseInt(contentLength, 10) || 0;
+    
+    const reader = response.body.getReader();
+    let receivedLength = 0;
+    const chunks = [];
+    
+    let lastUpdate = 0;
+    while(true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      
+      chunks.push(value);
+      receivedLength += value.length;
+      
+      download.downloadedSize = receivedLength;
+      download.progress = download.totalSize ? (receivedLength / download.totalSize) * 100 : 0;
+      
+      // Throttle UI updates to ~10fps
+      const now = Date.now();
+      if (now - lastUpdate > 100) {
+        updateDownloadsUI();
+        lastUpdate = now;
+      }
     }
+
+    
+    download.blob = new Blob(chunks);
+    download.status = 'completed';
+    download.progress = 100;
   } catch (err) {
-    console.error("Mapping failed:", err);
-    alert("Playback error. Try searching manually.");
+    if (err.name === 'AbortError') {
+      download.status = 'cancelled';
+    } else {
+      download.status = 'error';
+      console.error('Download failed:', err);
+    }
+  }
+  updateDownloadsUI();
+}
+
+    </div>
+  `).join('');
+  lucide.createIcons({ root: downloadsList });
+}
+
+function clearCompletedDownloads() {
+  downloads = downloads.filter(dl => dl.status !== 'completed');
+  updateDownloadsUI();
+}
+
+
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+window.cancelDownload = (id) => {
+  const dl = downloads.find(d => d.id === id);
+  if (dl) dl.controller.abort();
+};
+
+window.removeDownload = (id) => {
+  downloads = downloads.filter(d => d.id !== id);
+  updateDownloadsUI();
+};
+
+window.saveFile = (id) => {
+  const dl = downloads.find(d => d.id === id);
+  if (dl && dl.blob) {
+    const url = window.URL.createObjectURL(dl.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = dl.name;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   }
 };
 
-function renderPlaylists() {
-  const grid = document.getElementById('playlistGrid');
-  if (!grid) return;
-  grid.innerHTML = playlists.map(p => `
-    <div class="music-card">
-      <img src="${p.artwork}" alt="${p.name}" class="card-image" style="border-radius: 8px;" loading="lazy">
-      <div class="card-title">${p.name}</div>
-    </div>
-  `).join('');
+window.toggleDownloads = toggleDownloads;
+
+function createNewTab(url = BROWSER_CONFIG.defaultHome) {
+  const id = Date.now();
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.id = `iframe-${id}`;
+  iframe.frameBorder = "0";
+  iframe.style.display = 'none';
+  
+  tabsContainer.appendChild(iframe);
+  
+  const newTab = { id, url, title: 'New Tab', iframe };
+  tabs.push(newTab);
+  
+  switchTab(id);
+  updateTabSwitcherUI();
 }
 
-// Playback Logic
+function switchTab(id) {
+  activeTabId = id;
+  tabs.forEach(tab => {
+    tab.iframe.style.display = tab.id === id ? 'block' : 'none';
+    if (tab.id === id) {
+      browserInput.value = tab.url === BROWSER_CONFIG.defaultHome ? '' : tab.url;
+    }
+  });
+  updateTabSwitcherUI();
+}
+
+function closeTab(id, e) {
+  if (e) e.stopPropagation();
+  const index = tabs.findIndex(t => t.id === id);
+  if (index === -1) return;
+
+  const tab = tabs[index];
+  tab.iframe.remove();
+  tabs.splice(index, 1);
+
+  if (tabs.length === 0) {
+    createNewTab();
+  } else if (activeTabId === id) {
+    switchTab(tabs[Math.max(0, index - 1)].id);
+  }
+  
+  updateTabSwitcherUI();
+}
+
+function closeAllTabs() {
+  tabs.forEach(t => t.iframe.remove());
+  tabs = [];
+  createNewTab();
+  toggleTabSwitcher();
+}
+
+function toggleTabSwitcher() {
+  tabSwitcher.classList.toggle('active');
+  if (tabSwitcher.classList.contains('active')) {
+    updateTabSwitcherUI();
+  }
+}
+
+function updateTabSwitcherUI() {
+  tabCountEl.textContent = tabs.length;
+  if (!tabGrid) return;
+
+    </div>
+  `).join('');
+  lucide.createIcons({ root: tabGrid });
+}
+
+
+// Make globally accessible for onclick handlers
+window.switchTab = switchTab;
+window.toggleTabSwitcher = toggleTabSwitcher;
+window.closeTab = closeTab;
+
+
+
+function renderLibrary(filteredSongs = songs) {
+  const grid = document.getElementById('libraryGrid');
+  if (grid) {
+    grid.innerHTML = filteredSongs.map((song, index) => {
+      // Find original index for playing
+      const originalIndex = songs.indexOf(song);
+      return `
+        <div class="music-card" onclick="playSong(${originalIndex})">
+          <img src="${song.artwork}" alt="${song.title}" class="card-image" loading="lazy">
+          <div class="card-title">${song.title}</div>
+          <div class="card-subtitle">${song.artist}</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
 window.playSong = function(index) {
   if (index < 0 || index >= songs.length) return;
   
@@ -311,19 +351,11 @@ window.playSong = function(index) {
   
   stopAllEngines();
 
-  activeEngine = song.type === 'youtube' ? 'youtube' : 
-                 (song.type === 'local' && song.fileType && song.fileType.startsWith('video') ? 'local-video' : 'local-audio');
+  activeEngine = (song.type === 'local' && song.fileType && song.fileType.startsWith('video')) ? 'local-video' : 'local-audio';
 
   updateSongUI(song);
   
-  if (activeEngine === 'youtube') {
-    if (isYTReady && ytPlayer && ytPlayer.loadVideoById) {
-      ytPlayer.loadVideoById(song.source);
-    } else {
-      setTimeout(() => playSong(index), 1000);
-      return;
-    }
-  } else if (activeEngine === 'local-audio') {
+  if (activeEngine === 'local-audio') {
     localAudio.src = song.source;
     localAudio.play().catch(console.error);
     isPlaying = true;
@@ -340,8 +372,8 @@ window.playSong = function(index) {
   openDrawer();
 };
 
+
 function stopAllEngines() {
-  if (ytPlayer && ytPlayer.stopVideo && isYTReady) ytPlayer.stopVideo();
   localAudio.pause();
   localAudio.currentTime = 0;
   localVideo.pause();
@@ -349,6 +381,7 @@ function stopAllEngines() {
   isPlaying = false;
   stopProgressTimer();
 }
+
 
 function updateSongUI(song, initial = false) {
   if (!song) return;
@@ -365,7 +398,7 @@ function updateSongUI(song, initial = false) {
   durationEl.textContent = formatTime(song.duration || 0);
   renderLyrics(song);
   
-  if (song.type === 'youtube' || (song.type === 'local' && song.fileType && song.fileType.startsWith('video'))) {
+  if (song.type === 'local' && song.fileType && song.fileType.startsWith('video')) {
     document.getElementById('toggleVideo').style.display = 'block';
   } else {
     document.getElementById('toggleVideo').style.display = 'none';
@@ -378,26 +411,15 @@ function setMode(mode) {
   if (mode === 'video') {
     videoContainer.classList.add('active');
     artworkContainer.classList.add('hidden');
-    if (activeEngine === 'youtube') {
-      videoContainer.appendChild(document.getElementById('ytPlayerContainer'));
-      document.getElementById('ytPlayerContainer').style.position = 'relative';
-      document.getElementById('ytPlayerContainer').style.top = '0';
-      document.getElementById('ytPlayerContainer').style.left = '0';
-      document.getElementById('ytPlayerContainer').style.pointerEvents = 'auto';
-    } else if (activeEngine === 'local-video') {
-      videoContainer.appendChild(localVideo);
-      localVideo.style.display = 'block';
-    }
+    videoContainer.appendChild(localVideo);
+    localVideo.style.display = 'block';
   } else {
     videoContainer.classList.remove('active');
     artworkContainer.classList.remove('hidden');
-    document.body.appendChild(document.getElementById('ytPlayerContainer'));
-    document.getElementById('ytPlayerContainer').style.position = 'absolute';
-    document.getElementById('ytPlayerContainer').style.top = '-9999px';
-    document.getElementById('ytPlayerContainer').style.pointerEvents = 'none';
     localVideo.style.display = 'none';
   }
 }
+
 
 function updateBackground(color, initial) {
   const targetLayer = activeBgLayer === 1 ? bgLayer2 : bgLayer1;
@@ -429,16 +451,14 @@ function updateProgressUI() {
   let current = 0;
   let total = 0;
 
-  if (activeEngine === 'youtube' && isYTReady && ytPlayer && ytPlayer.getCurrentTime) {
-    current = ytPlayer.getCurrentTime();
-    total = ytPlayer.getDuration();
-  } else if (activeEngine === 'local-audio') {
+  if (activeEngine === 'local-audio') {
     current = localAudio.currentTime;
     total = localAudio.duration;
   } else if (activeEngine === 'local-video') {
     current = localVideo.currentTime;
     total = localVideo.duration;
   }
+
 
   if (total > 0) {
     const percent = (current / total) * 100;
@@ -458,13 +478,11 @@ function formatTime(seconds) {
 
 function togglePlayback() {
   if (isPlaying) {
-    if (activeEngine === 'youtube' && isYTReady) ytPlayer.pauseVideo();
-    else if (activeEngine === 'local-audio') localAudio.pause();
+    if (activeEngine === 'local-audio') localAudio.pause();
     else if (activeEngine === 'local-video') localVideo.pause();
     isPlaying = false;
   } else {
-    if (activeEngine === 'youtube' && isYTReady) ytPlayer.playVideo();
-    else if (activeEngine === 'local-audio') localAudio.play().catch(console.error);
+    if (activeEngine === 'local-audio') localAudio.play().catch(console.error);
     else if (activeEngine === 'local-video') localVideo.play().catch(console.error);
     isPlaying = true;
     startProgressTimer();
@@ -472,12 +490,15 @@ function togglePlayback() {
   updateControlsUI();
 }
 
+
 function updateControlsUI() {
   const iconName = isPlaying ? 'pause' : 'play';
   mainPlayIcon.setAttribute('data-lucide', iconName);
   miniPlayIcon.setAttribute('data-lucide', iconName);
-  lucide.createIcons();
+  lucide.createIcons({ root: miniPlayer });
+  lucide.createIcons({ root: nowPlayingDrawer });
 }
+
 
 function nextSong() {
   currentSongIndex = (currentSongIndex + 1) % songs.length;
@@ -491,99 +512,29 @@ function prevSong() {
 
 // Spotify-styled Search
 let searchTimeout = null;
-searchInput.addEventListener('input', (e) => {
-  clearTimeout(searchTimeout);
-  const query = e.target.value.trim();
-  if (query.length < 2) {
-    searchResults.innerHTML = '';
-    return;
-  }
-  searchTimeout = setTimeout(() => performSearch(query), 500);
+localSearchInput.addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase();
+  const filtered = songs.filter(s => 
+    s.title.toLowerCase().includes(query) || 
+    s.artist.toLowerCase().includes(query)
+  );
+  renderLibrary(filtered);
 });
 
-async function performSearch(query) {
-  searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Searching...</div>';
-  
-  if (SpotifyService.isAuthorized()) {
-    try {
-      const data = await SpotifyService.fetch(`search?q=${encodeURIComponent(query)}&type=track&limit=15`);
-      if (data && data.tracks && data.tracks.items.length > 0) {
-        searchResults.innerHTML = data.tracks.items.map(track => {
-          const thumb = track.album.images[0]?.url || 'assets/art1.png';
-          const title = track.name.replace(/'/g, "\\'");
-          const artist = track.artists.map(a => a.name).join(', ').replace(/'/g, "\\'");
-          return `
-            <div class="search-result-item" onclick="playSpotifyTrack('${title}', '${artist}', '${thumb}')">
-              <img src="${thumb}" class="search-result-thumb" style="border-radius: 4px;">
-              <div class="search-result-info">
-                <div class="search-result-title">${track.name}</div>
-                <div class="search-result-artist">${track.artists[0].name} • Spotify</div>
-              </div>
-              <i data-lucide="play" style="opacity: 0.5; width: 16px;"></i>
-            </div>
-          `;
-        }).join('');
-        lucide.createIcons();
-        return;
-      }
-    } catch (e) {
-      console.warn('Spotify search failed, falling back to YouTube:', e);
-    }
-  }
-
-  // Fallback to Piped/YouTube search
-  try {
-    const instance = 'https://api.piped.victr.me';
-    const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=music_videos`);
-    const data = await response.json();
-    
-    if (!data || !data.items || data.items.length === 0) {
-      searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">No results found.</div>';
-      return;
-    }
-
-    searchResults.innerHTML = data.items.slice(0, 15).map(item => {
-      const id = item.url.includes('v=') ? item.url.split('v=')[1] : item.url.split('/').pop();
-      const thumb = item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-      return `
-        <div class="search-result-item" onclick="addAndPlay('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.uploaderName.replace(/'/g, "\\'")}', '${thumb}')">
-          <img src="${thumb}" class="search-result-thumb" style="border-radius: 4px;">
-          <div class="search-result-info">
-            <div class="search-result-title">${item.title}</div>
-            <div class="search-result-artist">${item.uploaderName} • YouTube</div>
-          </div>
-          <i data-lucide="play" style="opacity: 0.5; width: 16px;"></i>
-        </div>
-      `;
-    }).join('');
-    lucide.createIcons();
-  } catch (err) {
-    searchResults.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.5;">Search error. Check connection.</div>';
-  }
+function renderPlaylists() {
+  const grid = document.getElementById('playlistGrid');
+  if (!grid) return;
+  grid.innerHTML = playlists.map(p => `
+    <div class="music-card">
+      <img src="${p.artwork}" alt="${p.name}" class="card-image" style="border-radius: 8px;" loading="lazy">
+      <div class="card-title">${p.name}</div>
+    </div>
+  `).join('');
 }
 
-window.addAndPlay = function(id, title, artist, artwork) {
-  const existingIndex = songs.findIndex(s => s.source === id);
-  if (existingIndex !== -1) {
-    playSong(existingIndex);
-    return;
-  }
-
-  const newSong = {
-    id: Date.now(),
-    title,
-    artist,
-    artwork,
-    type: 'youtube',
-    source: id,
-    color: '#282828'
-  };
-  songs.push(newSong);
-  renderLibrary();
-  playSong(songs.length - 1);
-};
 
 // UI Events
+
 function setupEventListeners() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -646,10 +597,10 @@ function setupEventListeners() {
 
   document.getElementById('volumeSlider').addEventListener('input', (e) => {
     const vol = e.target.value;
-    if (ytPlayer && isYTReady && ytPlayer.setVolume) ytPlayer.setVolume(vol);
     localAudio.volume = vol / 100;
     localVideo.volume = vol / 100;
   });
+
 
   // Seeking logic
   const progressBar = document.getElementById('progressBar');
@@ -658,10 +609,7 @@ function setupEventListeners() {
     const pos = (e.clientX - rect.left) / rect.width;
     
     let total = 0;
-    if (activeEngine === 'youtube' && isYTReady && ytPlayer && ytPlayer.getDuration) {
-      total = ytPlayer.getDuration();
-      ytPlayer.seekTo(total * pos, true);
-    } else if (activeEngine === 'local-audio') {
+    if (activeEngine === 'local-audio') {
       total = localAudio.duration;
       localAudio.currentTime = total * pos;
     } else if (activeEngine === 'local-video') {
@@ -669,6 +617,7 @@ function setupEventListeners() {
       localVideo.currentTime = total * pos;
     }
     updateProgressUI();
+
   });
 
   setTimeout(() => {
@@ -687,9 +636,10 @@ function closeDrawer() {
 
 function renderLyrics(song) {
   if (!song || !song.lyrics) {
-    lyricsContainer.innerHTML = '<div class="lyric-line">Lyrics are synced with Spotify</div>';
+    lyricsContainer.innerHTML = '<div class="lyric-line">No lyrics available for this track</div>';
     return;
   }
+
   lyricsContainer.innerHTML = song.lyrics.map((l, i) => `
     <div class="lyric-line" id="lyric-${i}">${l.text}</div>
   `).join('');

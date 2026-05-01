@@ -6,6 +6,8 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Samara's Vibe</title>
+
+
     <link rel="stylesheet" href="style.css">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -20,6 +22,8 @@
             <div class="welcome-content">
                 <div class="heart-icon"><i data-lucide="heart" fill="currentColor"></i></div>
                 <h1 class="welcome-text">Welcome to Samara's Vibe</h1>
+
+
                 <p class="welcome-subtext">made with love by your boyfie <3< /p>
             </div>
         </div>
@@ -37,9 +41,65 @@
 
         <!-- Main Content -->
         <main class="content-area">
-            <section id="library" class="tab-section active">
+            <section id="browser" class="tab-section active">
+                <div class="browser-container">
+                    <div id="tabsContainer" class="browser-viewport">
+                        <!-- Iframes will be injected here -->
+                    </div>
+                    
+                    <div class="browser-bottom-toolbar">
+                        <div class="toolbar-top">
+                            <button id="browserBack" class="toolbar-btn"><i data-lucide="chevron-left"></i></button>
+                            <button id="browserForward" class="toolbar-btn"><i data-lucide="chevron-right"></i></button>
+                            <div class="browser-address-bar">
+                                <i data-lucide="lock" style="width: 12px; opacity: 0.5;"></i>
+                                <input type="text" id="browserInput" placeholder="Search or enter URL">
+                                <button id="browserRefresh" class="browser-btn"><i data-lucide="rotate-cw" style="width: 14px;"></i></button>
+                            </div>
+                            <button id="downloadBtn" class="toolbar-btn"><i data-lucide="download-cloud"></i></button>
+                            <button id="newTabBtn" class="toolbar-btn"><i data-lucide="plus"></i></button>
+                            <button id="tabSwitcherBtn" class="toolbar-btn">
+                                <div class="tab-count-icon"><span id="tabCount">1</span></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Switcher Overlay (unchanged) -->
+                <div id="tabSwitcher" class="tab-switcher-overlay">
+                    <div class="tab-switcher-header">
+                        <button id="closeAllTabs" class="text-btn">Close All</button>
+                        <span class="switcher-title">Tabs</span>
+                        <button id="doneTabs" class="text-btn" style="font-weight: 700;">Done</button>
+                    </div>
+                    <div id="tabGrid" class="tab-grid">
+                        <!-- Tab cards will be injected here -->
+                    </div>
+                    <div class="tab-switcher-footer">
+                        <button id="newTabSwitcherBtn" class="footer-new-tab">
+                            <i data-lucide="plus"></i>
+                            <span>New Tab</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="downloadsOverlay" class="downloads-overlay">
+                    <div class="downloads-header">
+                        <button id="clearCompletedBtn" class="text-btn">Clear</button>
+                        <span class="switcher-title">Downloads</span>
+                        <button id="closeDownloads" class="text-btn" style="font-weight: 700;">Done</button>
+                    </div>
+
+                    <div id="downloadsList" class="downloads-list">
+                        <!-- Download items will be injected here -->
+                        <div class="no-downloads" id="noDownloads">No active downloads</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="library" class="tab-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h1 class="section-title" style="margin-bottom: 0;">Samara's Vibe</h1>
+                    <h1 class="section-title" style="margin-bottom: 0;">Music Library</h1>
                     <button id="importBtn" class="action-btn">
                         <i data-lucide="plus"></i>
                         <span>Import</span>
@@ -47,32 +107,18 @@
                     <input type="file" id="fileInput" multiple accept="audio/*,video/*" style="display: none;">
                 </div>
 
-                <div class="grid-container" id="libraryGrid">
-                    <!-- Cards will be injected here -->
+                <div class="search-bar">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="localSearchInput" placeholder="Search your library...">
                 </div>
 
-                <h2 class="section-title" style="font-size: 20px;">Spotify Top 50 Global</h2>
-                <div id="trendingGrid" class="grid-container" style="grid-template-columns: repeat(2, 1fr);">
-                    <div style="grid-column: span 2; text-align: center; opacity: 0.5; padding: 20px;">Fetching Spotify
-                        hits...</div>
+                <div class="grid-container" id="libraryGrid">
+                    <!-- Cards will be injected here -->
                 </div>
 
                 <h2 class="section-title" style="font-size: 20px;">Playlists</h2>
                 <div class="grid-container" id="playlistGrid" style="grid-template-columns: repeat(2, 1fr);">
                     <!-- Playlist cards -->
-                </div>
-            </section>
-
-            <!-- Removed Browse and Radio placeholder sections -->
-
-            <section id="search" class="tab-section">
-                <h1 class="section-title">Search</h1>
-                <div class="search-bar">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="searchInput" placeholder="Search YouTube Music & Video...">
-                </div>
-                <div id="searchResults" class="search-results-container">
-                    <!-- Search results from YouTube will appear here -->
                 </div>
             </section>
 
@@ -90,22 +136,12 @@
                         </label>
                     </div>
 
-                    <div class="settings-group-title">Spotify Integration</div>
-                    <div class="settings-card">
-                        <p style="margin-bottom: 10px; color: var(--text-secondary); font-size: 13px;">Get your Client ID from developer.spotify.com</p>
-                        <input type="text" id="spotifyClientId" placeholder="Enter Spotify Client ID" class="settings-input" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; color: white; margin-bottom: 10px;">
-                        <button id="spotifyAuthBtn" class="action-btn" style="width: 100%; justify-content: center; background: #1DB954; color: black;">
-                            <i data-lucide="log-in"></i>
-                            <span>Authorize Spotify</span>
-                        </button>
-                        <div id="spotifyStatus" style="margin-top: 10px; font-size: 12px; opacity: 0.7;">Status: Not Connected</div>
-                    </div>
-
                     <div class="settings-group-title">About</div>
                     <div class="settings-card">
-                        <p style="margin-bottom: 10px; color: var(--text-secondary);">Samara's Vibe v1.3.0</p>
-                        <p style="line-height: 1.5;">Penyanyi favorite bubu : <br><strong>the weeknd, bruno mars,
-                                central cee, sza, dll</strong></p>
+                        <p style="margin-bottom: 10px; color: var(--text-secondary);">Samara's Vibe v2.0.0</p>
+
+
+                        <p style="line-height: 1.5;">Browser & Local Media Player<br><strong>Simple, Private, Minimalist</strong></p>
                     </div>
                 </div>
             </section>
@@ -131,13 +167,13 @@
 
         <!-- Bottom Navigation -->
         <nav class="bottom-nav">
-            <div class="nav-item active" data-tab="library">
-                <i data-lucide="library"></i>
-                <span>Library</span>
+            <div class="nav-item active" data-tab="browser">
+                <i data-lucide="globe"></i>
+                <span>Home</span>
             </div>
-            <div class="nav-item" data-tab="search">
-                <i data-lucide="search"></i>
-                <span>Search</span>
+            <div class="nav-item" data-tab="library">
+                <i data-lucide="music"></i>
+                <span>Music</span>
             </div>
             <div class="nav-item" data-tab="settings">
                 <i data-lucide="settings"></i>
