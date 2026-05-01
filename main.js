@@ -59,14 +59,29 @@ const themeToggle = document.getElementById('themeToggle');
 
 
 function init() {
-  renderLibrary();
-  renderPlaylists();
-  setupEventListeners();
-  setupSwipeGestures();
-  setupBrowser();
-  updateSongUI(songs[currentSongIndex], true);
-  lucide.createIcons();
+  try {
+    // Dismiss welcome screen early if possible, or keep the timer
+    const hideWelcome = () => {
+      const welcome = document.getElementById('welcomeScreen');
+      if (welcome) welcome.classList.add('hidden');
+    };
+    setTimeout(hideWelcome, 2000);
+
+    renderLibrary();
+    renderPlaylists();
+    setupEventListeners();
+    setupSwipeGestures();
+    setupBrowser();
+    updateSongUI(songs[currentSongIndex], true);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (error) {
+    console.error("Initialization error:", error);
+    // Fallback: make sure welcome screen is hidden even on error
+    const welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.classList.add('hidden');
+  }
 }
+
 
 
 function setupBrowser() {
@@ -205,8 +220,9 @@ async function startDownload(url) {
 
     </div>
   `).join('');
-  lucide.createIcons({ root: downloadsList });
+  if (typeof lucide !== 'undefined') lucide.createIcons({ root: downloadsList });
 }
+
 
 function clearCompletedDownloads() {
   downloads = downloads.filter(dl => dl.status !== 'completed');
@@ -315,8 +331,9 @@ function updateTabSwitcherUI() {
 
     </div>
   `).join('');
-  lucide.createIcons({ root: tabGrid });
+  if (typeof lucide !== 'undefined') lucide.createIcons({ root: tabGrid });
 }
+
 
 
 // Make globally accessible for onclick handlers
@@ -495,9 +512,12 @@ function updateControlsUI() {
   const iconName = isPlaying ? 'pause' : 'play';
   mainPlayIcon.setAttribute('data-lucide', iconName);
   miniPlayIcon.setAttribute('data-lucide', iconName);
-  lucide.createIcons({ root: miniPlayer });
-  lucide.createIcons({ root: nowPlayingDrawer });
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons({ root: miniPlayer });
+    lucide.createIcons({ root: nowPlayingDrawer });
+  }
 }
+
 
 
 function nextSong() {
@@ -620,11 +640,9 @@ function setupEventListeners() {
 
   });
 
-  setTimeout(() => {
-    const welcome = document.getElementById('welcomeScreen');
-    if (welcome) welcome.classList.add('hidden');
-  }, 2500);
+  });
 }
+
 
 function openDrawer() {
   nowPlayingDrawer.classList.add('open');
@@ -674,4 +692,9 @@ window.addEventListener('unload', () => {
   localUrls.forEach(url => URL.revokeObjectURL(url));
 });
 
-init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
