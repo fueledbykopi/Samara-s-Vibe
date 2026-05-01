@@ -834,10 +834,11 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 .heart-icon {
-  color: var(--primary-color);
+  color: #ff2d55;
   margin-bottom: 24px;
   animation: heartBeat 1.5s infinite ease-in-out;
 }
+
 
 @keyframes heartBeat {
   0%, 100% { transform: scale(1); }
