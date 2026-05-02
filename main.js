@@ -109,6 +109,7 @@ function setupBrowser() {
       if (activeTab) {
         activeTab.url = url;
         activeTab.iframe.src = url;
+        switchTab(activeTabId);
       }
     }
   });
@@ -565,6 +566,16 @@ function updateControlsUI() {
   const iconName = isPlaying ? 'pause' : 'play';
   mainPlayIcon.setAttribute('data-lucide', iconName);
   miniPlayIcon.setAttribute('data-lucide', iconName);
+  
+  // Show/Hide mini player
+  if (isPlaying || (activeEngine && (localAudio.src || localVideo.src))) {
+    miniPlayer.style.display = 'flex';
+    setTimeout(() => miniPlayer.style.opacity = '1', 10);
+  } else {
+    miniPlayer.style.opacity = '0';
+    setTimeout(() => { if (!isPlaying) miniPlayer.style.display = 'none'; }, 300);
+  }
+
   if (typeof lucide !== 'undefined') {
     lucide.createIcons({ root: miniPlayer });
     lucide.createIcons({ root: nowPlayingDrawer });
