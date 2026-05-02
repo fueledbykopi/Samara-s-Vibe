@@ -61,11 +61,14 @@ const themeToggle = document.getElementById('themeToggle');
 function init() {
   try {
     // Dismiss welcome screen early if possible, or keep the timer
+    // Logic moved to index.html for faster execution, but keep this as fallback
     const hideWelcome = () => {
       const welcome = document.getElementById('welcomeScreen');
-      if (welcome) welcome.classList.add('hidden');
+      if (welcome) {
+          welcome.style.opacity = '0';
+          setTimeout(() => welcome.style.display = 'none', 800);
+      }
     };
-    setTimeout(hideWelcome, 2000);
 
     renderLibrary();
     renderPlaylists();
@@ -125,7 +128,8 @@ function setupBrowser() {
     if (activeTab) activeTab.iframe.contentWindow.history.forward();
   });
 
-  document.getElementById('newTabBtn').addEventListener('click', () => createNewTab());
+  const newTabBtn = document.getElementById('newTabBtn');
+  if (newTabBtn) newTabBtn.addEventListener('click', () => createNewTab());
   document.getElementById('tabSwitcherBtn').addEventListener('click', toggleTabSwitcher);
   document.getElementById('doneTabs').addEventListener('click', toggleTabSwitcher);
   document.getElementById('newTabSwitcherBtn').addEventListener('click', () => {
@@ -218,6 +222,30 @@ async function startDownload(url) {
   updateDownloadsUI();
 }
 
+  if (downloads.length === 0) {
+    downloadsList.innerHTML = '<div class="no-downloads">No active downloads</div>';
+    return;
+  }
+
+  downloadsList.innerHTML = downloads.map(dl => `
+    <div class="download-item">
+      <div class="download-info">
+        <div class="download-name">${dl.name}</div>
+        <div class="download-meta">${dl.status === 'completed' ? 'Completed' : formatBytes(dl.downloadedSize) + ' of ' + formatBytes(dl.totalSize)}</div>
+      </div>
+      <div class="download-progress-container">
+        <div class="download-progress-bar" style="width: ${dl.progress}%"></div>
+      </div>
+      <div class="download-actions">
+        ${dl.status === 'downloading' ? `
+          <button onclick="cancelDownload(${dl.id})" class="dl-action-btn"><i data-lucide="x-circle"></i></button>
+        ` : dl.status === 'completed' ? `
+          <button onclick="saveFile(${dl.id})" class="dl-action-btn"><i data-lucide="download"></i></button>
+          <button onclick="removeDownload(${dl.id})" class="dl-action-btn"><i data-lucide="trash-2"></i></button>
+        ` : `
+          <button onclick="removeDownload(${dl.id})" class="dl-action-btn"><i data-lucide="trash-2"></i></button>
+        `}
+      </div>
     </div>
   `).join('');
   if (typeof lucide !== 'undefined') lucide.createIcons({ root: downloadsList });
@@ -284,14 +312,28 @@ function createNewTab(url = BROWSER_CONFIG.defaultHome) {
 
 function switchTab(id) {
   activeTabId = id;
+  const activeTab = tabs.find(t => t.id === id);
+  const isHome = !activeTab || activeTab.url === BROWSER_CONFIG.defaultHome || activeTab.url === '';
+  
+  document.getElementById('browserHome').style.display = isHome ? 'flex' : 'none';
+  
   tabs.forEach(tab => {
-    tab.iframe.style.display = tab.id === id ? 'block' : 'none';
+    tab.iframe.style.display = (tab.id === id && !isHome) ? 'block' : 'none';
     if (tab.id === id) {
-      browserInput.value = tab.url === BROWSER_CONFIG.defaultHome ? '' : tab.url;
+      browserInput.value = isHome ? '' : tab.url;
     }
   });
   updateTabSwitcherUI();
 }
+
+window.loadUrl = (url) => {
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  if (activeTab) {
+    activeTab.url = url;
+    activeTab.iframe.src = url;
+    switchTab(activeTabId);
+  }
+};
 
 function closeTab(id, e) {
   if (e) e.stopPropagation();
@@ -329,6 +371,17 @@ function updateTabSwitcherUI() {
   tabCountEl.textContent = tabs.length;
   if (!tabGrid) return;
 
+  tabGrid.innerHTML = tabs.map(tab => `
+    <div class="tab-card ${tab.id === activeTabId ? 'active' : ''}" onclick="switchTab(${tab.id}); toggleTabSwitcher();">
+      <div class="tab-card-header">
+        <div class="tab-card-title">${tab.title || tab.url}</div>
+        <button class="tab-close-btn" onclick="closeTab(${tab.id}, event)">
+          <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+        </button>
+      </div>
+      <div class="tab-card-preview">
+        <i data-lucide="globe" style="width: 48px; height: 48px; opacity: 0.1;"></i>
+      </div>
     </div>
   `).join('');
   if (typeof lucide !== 'undefined') lucide.createIcons({ root: tabGrid });
@@ -556,15 +609,20 @@ function renderPlaylists() {
 // UI Events
 
 function setupEventListeners() {
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const tab = item.getAttribute('data-tab');
-      document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-      const target = document.getElementById(tab);
-      if (target) target.classList.add('active');
-      item.classList.add('active');
-    });
+  document.getElementById('libraryMenuBtn').addEventListener('click', () => {
+    document.getElementById('libraryOverlay').classList.add('active');
+  });
+
+  document.getElementById('closeLibrary').addEventListener('click', () => {
+    document.getElementById('libraryOverlay').classList.remove('active');
+  });
+
+  document.getElementById('openSettingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsOverlay').classList.add('active');
+  });
+
+  document.getElementById('closeSettings').addEventListener('click', () => {
+    document.getElementById('settingsOverlay').classList.remove('active');
   });
 
   themeToggle.addEventListener('change', () => {
@@ -589,7 +647,7 @@ function setupEventListeners() {
       });
     });
     renderLibrary();
-    document.querySelector('[data-tab="library"]').click();
+    document.getElementById('libraryOverlay').classList.add('active');
   });
 
   miniPlayer.addEventListener('click', (e) => {
@@ -637,8 +695,6 @@ function setupEventListeners() {
       localVideo.currentTime = total * pos;
     }
     updateProgressUI();
-
-  });
 
   });
 }

@@ -23,14 +23,17 @@
                 <div class="heart-icon"><i data-lucide="heart" fill="currentColor"></i></div>
                 <h1 class="welcome-text">Welcome to Samara's Vibe</h1>
                 <script>
-                    setTimeout(function() {
-                        var welcome = document.getElementById('welcomeScreen');
+                    // Combined welcome screen logic
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const welcome = document.getElementById('welcomeScreen');
                         if (welcome) {
-                            welcome.style.opacity = '0';
-                            welcome.style.pointerEvents = 'none';
-                            setTimeout(function() { welcome.style.display = 'none'; }, 800);
+                            setTimeout(() => {
+                                welcome.style.opacity = '0';
+                                welcome.style.pointerEvents = 'none';
+                                setTimeout(() => { welcome.style.display = 'none'; }, 800);
+                            }, 2500);
                         }
-                    }, 3000);
+                    });
                 </script>
 
 
@@ -51,112 +54,150 @@
         <audio id="localAudio" style="display: none;"></audio>
         <video id="localVideo" style="display: none;"></video>
 
-        <!-- Main Content -->
-        <main class="content-area">
-            <section id="browser" class="tab-section active">
-                <div class="browser-container">
-                    <div id="tabsContainer" class="browser-viewport">
-                        <!-- Iframes will be injected here -->
-                    </div>
-                    
-                    <div class="browser-bottom-toolbar">
-                        <div class="toolbar-top">
-                            <button id="browserBack" class="toolbar-btn"><i data-lucide="chevron-left"></i></button>
-                            <button id="browserForward" class="toolbar-btn"><i data-lucide="chevron-right"></i></button>
-                            <div class="browser-address-bar">
-                                <i data-lucide="lock" style="width: 12px; opacity: 0.5;"></i>
-                                <input type="text" id="browserInput" placeholder="Search or enter URL">
-                                <button id="browserRefresh" class="browser-btn"><i data-lucide="rotate-cw" style="width: 14px;"></i></button>
-                            </div>
-                            <button id="downloadBtn" class="toolbar-btn"><i data-lucide="download-cloud"></i></button>
-                            <button id="newTabBtn" class="toolbar-btn"><i data-lucide="plus"></i></button>
-                            <button id="tabSwitcherBtn" class="toolbar-btn">
-                                <div class="tab-count-icon"><span id="tabCount">1</span></div>
-                            </button>
+        <!-- Main Content (Full Browser) -->
+        <main class="content-area browser-container" id="browser">
+            <div id="tabsContainer" class="browser-viewport">
+                <!-- Iframes will be injected here -->
+                <div id="browserHome" class="browser-home">
+                    <div class="home-content">
+                        <div class="home-logo">
+                            <i data-lucide="globe" style="width: 48px; height: 48px;"></i>
+                        </div>
+                        <h2 style="margin-bottom: 30px; font-weight: 700;">Favorites</h2>
+                        <div class="favorites-grid">
+                            <a href="javascript:void(0)" onclick="loadUrl('https://www.google.com')" class="favorite-item">
+                                <div class="fav-icon" style="background: #fff; color: #4285f4;">G</div>
+                                <span>Google</span>
+                            </a>
+                            <a href="javascript:void(0)" onclick="loadUrl('https://www.youtube.com')" class="favorite-item">
+                                <div class="fav-icon" style="background: #ff0000; color: #fff;">Y</div>
+                                <span>YouTube</span>
+                            </a>
+                            <a href="javascript:void(0)" onclick="loadUrl('https://www.apple.com')" class="favorite-item">
+                                <div class="fav-icon" style="background: #000; color: #fff;"><i data-lucide="apple" style="width:16px;"></i></div>
+                                <span>Apple</span>
+                            </a>
+                            <a href="javascript:void(0)" onclick="loadUrl('https://github.com')" class="favorite-item">
+                                <div class="fav-icon" style="background: #333; color: #fff;"><i data-lucide="github" style="width:16px;"></i></div>
+                                <span>GitHub</span>
+                            </a>
                         </div>
                     </div>
                 </div>
-
-                <!-- Tab Switcher Overlay (unchanged) -->
-                <div id="tabSwitcher" class="tab-switcher-overlay">
-                    <div class="tab-switcher-header">
-                        <button id="closeAllTabs" class="text-btn">Close All</button>
-                        <span class="switcher-title">Tabs</span>
-                        <button id="doneTabs" class="text-btn" style="font-weight: 700;">Done</button>
-                    </div>
-                    <div id="tabGrid" class="tab-grid">
-                        <!-- Tab cards will be injected here -->
-                    </div>
-                    <div class="tab-switcher-footer">
-                        <button id="newTabSwitcherBtn" class="footer-new-tab">
-                            <i data-lucide="plus"></i>
-                            <span>New Tab</span>
-                        </button>
+            </div>
+            
+            <div class="browser-bottom-toolbar">
+                <div class="browser-address-container">
+                    <div class="browser-address-bar">
+                        <span style="font-weight: 500; font-size: 13px; opacity: 0.7; margin-right: 6px;"><sub>A</sub>A</span>
+                        <i data-lucide="lock" style="width: 12px; opacity: 0.5; margin-right: 4px;"></i>
+                        <input type="text" id="browserInput" placeholder="Search or enter website name">
+                        <button id="browserRefresh" class="toolbar-btn-small"><i data-lucide="rotate-cw" style="width: 14px;"></i></button>
                     </div>
                 </div>
-
-                <div id="downloadsOverlay" class="downloads-overlay">
-                    <div class="downloads-header">
-                        <button id="clearCompletedBtn" class="text-btn">Clear</button>
-                        <span class="switcher-title">Downloads</span>
-                        <button id="closeDownloads" class="text-btn" style="font-weight: 700;">Done</button>
-                    </div>
-
-                    <div id="downloadsList" class="downloads-list">
-                        <!-- Download items will be injected here -->
-                        <div class="no-downloads" id="noDownloads">No active downloads</div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="library" class="tab-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h1 class="section-title" style="margin-bottom: 0;">Music Library</h1>
-                    <button id="importBtn" class="action-btn">
-                        <i data-lucide="plus"></i>
-                        <span>Import</span>
+                <div class="toolbar-controls">
+                    <button id="browserBack" class="toolbar-btn"><i data-lucide="chevron-left"></i></button>
+                    <button id="browserForward" class="toolbar-btn" style="opacity: 0.5;"><i data-lucide="chevron-right"></i></button>
+                    <button id="downloadBtn" class="toolbar-btn"><i data-lucide="download"></i></button>
+                    <button id="libraryMenuBtn" class="toolbar-btn"><i data-lucide="music"></i></button>
+                    <button id="tabSwitcherBtn" class="toolbar-btn">
+                        <div class="tab-count-icon" id="tabCount">1</div>
                     </button>
-                    <input type="file" id="fileInput" multiple accept="audio/*,video/*" style="display: none;">
                 </div>
+            </div>
 
-                <div class="search-bar">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="localSearchInput" placeholder="Search your library...">
+            <!-- Tab Switcher Overlay -->
+            <div id="tabSwitcher" class="tab-switcher-overlay">
+                <div class="tab-switcher-header">
+                    <button id="closeAllTabs" class="text-btn">Close All</button>
+                    <span class="switcher-title">Tabs</span>
+                    <button id="doneTabs" class="text-btn" style="font-weight: 700;">Done</button>
                 </div>
-
-                <div class="grid-container" id="libraryGrid">
-                    <!-- Cards will be injected here -->
+                <div id="tabGrid" class="tab-grid">
+                    <!-- Tab cards will be injected here -->
                 </div>
-
-                <h2 class="section-title" style="font-size: 20px;">Playlists</h2>
-                <div class="grid-container" id="playlistGrid" style="grid-template-columns: repeat(2, 1fr);">
-                    <!-- Playlist cards -->
+                <div class="tab-switcher-footer">
+                    <button id="newTabSwitcherBtn" class="footer-new-tab">
+                        <i data-lucide="plus"></i>
+                        <span>New Tab</span>
+                    </button>
                 </div>
-            </section>
+            </div>
 
-            <section id="settings" class="tab-section">
-                <h1 class="section-title">Settings</h1>
-                <div class="settings-list">
-                    <div class="settings-item">
-                        <div class="settings-info">
-                            <div class="settings-label">Dark Mode</div>
-                            <div class="settings-desc">Switch between themes</div>
+            <!-- Downloads Overlay -->
+            <div id="downloadsOverlay" class="downloads-overlay">
+                <div class="downloads-header">
+                    <button id="clearCompletedBtn" class="text-btn">Clear</button>
+                    <span class="switcher-title">Downloads</span>
+                    <button id="closeDownloads" class="text-btn" style="font-weight: 700;">Done</button>
+                </div>
+                <div id="downloadsList" class="downloads-list">
+                    <!-- Download items will be injected here -->
+                    <div class="no-downloads" id="noDownloads">No active downloads</div>
+                </div>
+            </div>
+
+            <!-- Library Overlay -->
+            <div id="libraryOverlay" class="downloads-overlay" style="z-index: 550;">
+                <div class="downloads-header">
+                    <button id="openSettingsBtn" class="text-btn"><i data-lucide="settings" style="width:20px;"></i></button>
+                    <span class="switcher-title">Music Library</span>
+                    <button id="closeLibrary" class="text-btn" style="font-weight: 700;">Done</button>
+                </div>
+                <div class="downloads-list" style="padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 class="section-title" style="margin: 0; padding: 0;">Local Files</h2>
+                        <button id="importBtn" class="action-btn">
+                            <i data-lucide="plus"></i>
+                            <span>Import</span>
+                        </button>
+                        <input type="file" id="fileInput" multiple accept="audio/*,video/*" style="display: none;">
+                    </div>
+
+                    <div class="search-bar">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="localSearchInput" placeholder="Search your library...">
+                    </div>
+
+                    <div class="grid-container" id="libraryGrid">
+                        <!-- Cards will be injected here -->
+                    </div>
+
+                    <h2 class="section-title" style="font-size: 20px; margin-top: 30px; margin-bottom: 15px;">Playlists</h2>
+                    <div class="grid-container" id="playlistGrid" style="grid-template-columns: repeat(2, 1fr);">
+                        <!-- Playlist cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Overlay -->
+            <div id="settingsOverlay" class="downloads-overlay" style="z-index: 600;">
+                <div class="downloads-header">
+                    <button class="text-btn" style="visibility: hidden;">Clear</button>
+                    <span class="switcher-title">Settings</span>
+                    <button id="closeSettings" class="text-btn" style="font-weight: 700;">Done</button>
+                </div>
+                <div class="downloads-list" style="padding: 20px;">
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <div class="settings-info">
+                                <div class="settings-label">Dark Mode</div>
+                                <div class="settings-desc">Switch between themes</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="themeToggle" checked>
+                                <span class="slider"></span>
+                            </label>
                         </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="themeToggle" checked>
-                            <span class="slider"></span>
-                        </label>
-                    </div>
 
-                    <div class="settings-group-title">About</div>
-                    <div class="settings-card">
-                        <p style="margin-bottom: 10px; color: var(--text-secondary);">Samara's Vibe v2.0.0</p>
-
-
-                        <p style="line-height: 1.5;">Browser & Local Media Player<br><strong>Simple, Private, Minimalist</strong></p>
+                        <div class="settings-group-title">About</div>
+                        <div class="settings-card">
+                            <p style="margin-bottom: 10px; color: var(--text-secondary);">Samara's Vibe v3.0.0</p>
+                            <p style="line-height: 1.5;">Browser & Local Media Player<br><strong>Simple, Private, Minimalist</strong></p>
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
         </main>
 
         <!-- Mini Player -->
@@ -164,8 +205,7 @@
             <img src="assets/art1.png" alt="Artwork" class="mini-artwork" id="miniArtwork">
             <div class="mini-info">
                 <div class="mini-title" id="miniTitle">Song Title</div>
-                <div class="mini-artist" id="miniArtist" style="font-size: 12px; color: var(--text-secondary);">Artist
-                    Name</div>
+                <div class="mini-artist" id="miniArtist" style="font-size: 12px; color: var(--text-secondary);">Artist Name</div>
             </div>
             <div class="mini-controls">
                 <button class="control-btn" id="miniPlayPause">
@@ -176,22 +216,6 @@
                 </button>
             </div>
         </div>
-
-        <!-- Bottom Navigation -->
-        <nav class="bottom-nav">
-            <div class="nav-item active" data-tab="browser">
-                <i data-lucide="globe"></i>
-                <span>Home</span>
-            </div>
-            <div class="nav-item" data-tab="library">
-                <i data-lucide="music"></i>
-                <span>Music</span>
-            </div>
-            <div class="nav-item" data-tab="settings">
-                <i data-lucide="settings"></i>
-                <span>Settings</span>
-            </div>
-        </nav>
 
         <!-- Fullscreen Player Drawer -->
         <div class="now-playing-drawer" id="nowPlayingDrawer">
