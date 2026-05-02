@@ -383,11 +383,11 @@ input[type=range]::-webkit-slider-thumb {
   background: white;
 }
 
-.browser-bottom-toolbar {
+.browser-toolbar {
   background: rgba(20, 20, 20, 0.85);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  padding: 8px 12px calc(env(safe-area-inset-bottom) + 12px);
+  padding: 8px 12px;
   border-top: 0.5px solid var(--border-color);
   z-index: 50;
   position: absolute;
@@ -397,6 +397,26 @@ input[type=range]::-webkit-slider-thumb {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.browser-toolbar.top-position {
+  bottom: auto;
+  top: 0;
+  border-top: none;
+  border-bottom: 0.5px solid var(--border-color);
+  padding-top: calc(8px + env(safe-area-inset-top));
+}
+
+.browser-viewport {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: white;
+}
+
+.browser-viewport.toolbar-top {
+  padding-top: 100px;
 }
 
 .browser-address-container {
@@ -1085,4 +1105,85 @@ body.light-theme .control-btn,
 body.light-theme .song-title,
 body.light-theme .welcome-text {
   color: #000;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: calc(64px + env(safe-area-inset-bottom));
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 0.5px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 100;
+}
+
+.nav-item {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.nav-item.active {
+  color: var(--primary-color);
+}
+
+.nav-item i {
+  width: 24px;
+  height: 24px;
+}
+
+.nav-item span {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* Tab Views */
+.tab-view {
+  display: none;
+  width: 100%;
+  height: calc(100% - 64px - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.tab-view.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+.music-library-container, .settings-container {
+  padding-bottom: 20px;
+  padding-top: env(safe-area-inset-top);
+  min-height: 100%;
+}
+
+.settings-select {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+.settings-select option {
+  background: #222;
+  color: white;
 }
