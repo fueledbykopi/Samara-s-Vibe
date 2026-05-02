@@ -13,7 +13,7 @@ let localUrls = new Set();
 // Browser State
 const BROWSER_CONFIG = {
   defaultSearchEngine: 'https://duckduckgo.com/?q=',
-  defaultHome: 'https://www.bing.com'
+  defaultHome: 'about:home'
 };
 
 let tabs = [];
@@ -297,10 +297,17 @@ window.toggleDownloads = toggleDownloads;
 function createNewTab(url = BROWSER_CONFIG.defaultHome) {
   const id = Date.now();
   const iframe = document.createElement('iframe');
-  iframe.src = url;
   iframe.id = `iframe-${id}`;
   iframe.frameBorder = "0";
   iframe.style.display = 'none';
+  
+  // Handle loading state
+  iframe.onload = () => {
+    const loader = document.getElementById('browserLoader');
+    if (loader) loader.classList.remove('active');
+  };
+  
+  iframe.src = url === 'about:home' ? '' : url;
   
   tabsContainer.appendChild(iframe);
   
@@ -314,7 +321,7 @@ function createNewTab(url = BROWSER_CONFIG.defaultHome) {
 function switchTab(id) {
   activeTabId = id;
   const activeTab = tabs.find(t => t.id === id);
-  const isHome = !activeTab || activeTab.url === BROWSER_CONFIG.defaultHome || activeTab.url === '';
+  const isHome = !activeTab || activeTab.url === 'about:home' || activeTab.url === '';
   
   document.getElementById('browserHome').style.display = isHome ? 'flex' : 'none';
   
@@ -332,7 +339,16 @@ window.loadUrl = (url) => {
   if (activeTab) {
     activeTab.url = url;
     activeTab.iframe.src = url;
+    const loader = document.getElementById('browserLoader');
+    if (loader) loader.classList.add('active');
     switchTab(activeTabId);
+  }
+};
+
+window.openExternal = () => {
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  if (activeTab && activeTab.url && activeTab.url !== 'about:home') {
+    window.open(activeTab.url, '_blank');
   }
 };
 

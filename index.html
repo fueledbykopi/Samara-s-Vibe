@@ -59,6 +59,7 @@
             <div id="tabsContainer" class="browser-viewport">
                 <!-- Iframes will be injected here -->
                 <div id="browserHome" class="browser-home">
+                    <div id="browserLoader" class="browser-loader"></div>
                     <div class="home-content">
                         <div class="home-logo">
                             <i data-lucide="globe" style="width: 48px; height: 48px;"></i>
@@ -89,8 +90,7 @@
             <div class="browser-bottom-toolbar">
                 <div class="browser-address-container">
                     <div class="browser-address-bar">
-                        <span style="font-weight: 500; font-size: 13px; opacity: 0.7; margin-right: 6px;"><sub>A</sub>A</span>
-                        <i data-lucide="lock" style="width: 12px; opacity: 0.5; margin-right: 4px;"></i>
+                        <button onclick="openExternal()" class="toolbar-btn-small" title="Open in external browser"><i data-lucide="external-link" style="width: 14px;"></i></button>
                         <input type="text" id="browserInput" placeholder="Search or enter website name">
                         <button id="browserRefresh" class="toolbar-btn-small"><i data-lucide="rotate-cw" style="width: 14px;"></i></button>
                     </div>
