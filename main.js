@@ -149,7 +149,7 @@ function setupBrowser() {
         if (url.includes('.') && !url.includes(' ')) {
           url = 'https://' + url;
         } else {
-          url = BROWSER_CONFIG.defaultSearchEngine + encodeURIComponent(url);
+          return;
         }
       }
       const activeTab = tabs.find(t => t.id === activeTabId);
