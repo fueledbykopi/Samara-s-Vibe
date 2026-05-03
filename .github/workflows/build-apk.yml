@@ -32,20 +32,9 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      - name: Check Web Assets
+      - name: Initialize Capacitor Android
         run: |
-          echo "Checking www directory..."
-          ls -R www
-
-      - name: Setup Capacitor Android
-        run: |
-          if [ ! -d "android" ]; then
-            echo "Android directory not found, adding platform..."
-            npx cap add android
-          else
-            echo "Android directory found, syncing..."
-          fi
-          npx cap sync android
+          npx cap sync android || (npx cap add android && npx cap sync android)
 
       - name: Accept Android Licenses
         run: yes | sdkmanager --licenses || true
@@ -53,8 +42,13 @@ jobs:
       - name: Build with Gradle
         run: |
           cd android
+          if [ ! -f "gradlew" ]; then
+            echo "Error: gradlew not found in android directory!"
+            ls -la
+            exit 1
+          fi
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --info
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
