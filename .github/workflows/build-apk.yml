@@ -17,12 +17,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Install Dependencies
         run: npm install
@@ -30,20 +32,23 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      - name: Sync Capacitor
-        run: npx cap sync android || (npx cap add android && npx cap sync android)
+      - name: Check Web Assets
+        run: |
+          echo "Checking www directory..."
+          ls -R www
+
+      - name: Setup Capacitor Android
+        run: |
+          if [ ! -d "android" ]; then
+            echo "Android directory not found, adding platform..."
+            npx cap add android
+          else
+            echo "Android directory found, syncing..."
+          fi
+          npx cap sync android
 
       - name: Accept Android Licenses
         run: yes | sdkmanager --licenses || true
-
-      - name: Diagnostic: Check Android Directory
-        run: |
-          ls -R android || echo "Android directory not found"
-          if [ -f "android/gradlew" ]; then
-            echo "gradlew found"
-          else
-            echo "gradlew NOT found"
-          fi
 
       - name: Build with Gradle
         run: |
